@@ -11,12 +11,30 @@ const POMODORO_BREAK_KEY = "kaoyan_pomodoro_break_v1";
 const THEME_KEY = "kaoyan_theme_v1";
 const LOG_ORDER_KEY = "kaoyan_log_order_v1";
 const COUNTDOWN_KEY = "kaoyan_countdown_v1";
+const SUBJECT_GOALS_KEY = "kaoyan_subject_goals_v1";
+const STUDY_PHASES_KEY = "kaoyan_study_phases_v1";
+const MAX_STUDY_PHASES = 4;
 
 const DEFAULT_COUNTDOWN = {
   label: "考研初试",
   date: "2026-12-21",
   enabled: true,
 };
+
+/** @type {Record<string, number>} 科目 -> 目标总时长（小时） */
+const DEFAULT_SUBJECT_GOALS = {
+  数分: 400,
+  高代: 400,
+  英语: 150,
+  政治: 100,
+};
+
+/** @type {{ id: string, name: string, startDate: string, endDate: string }[]} */
+const DEFAULT_STUDY_PHASES = [
+  { id: "phase-base", name: "基础阶段", startDate: "2025-09-01", endDate: "2026-02-28" },
+  { id: "phase-strong", name: "强化阶段", startDate: "2026-03-01", endDate: "2026-08-31" },
+  { id: "phase-sprint", name: "冲刺阶段", startDate: "2026-09-01", endDate: "2026-12-21" },
+];
 
 const DEFAULT_DAILY_GOAL_HOURS = 8;
 
@@ -118,6 +136,12 @@ let dayLogOrder = {};
 
 /** @type {{ label: string, date: string, enabled: boolean }} */
 let countdown = { ...DEFAULT_COUNTDOWN };
+
+/** @type {Record<string, number>} */
+let subjectGoals = { ...DEFAULT_SUBJECT_GOALS };
+
+/** @type {{ id: string, name: string, startDate: string, endDate: string }[]} */
+let studyPhases = [];
 
 /** @type {Record<string, string[]>} */
 let subtasksLibrary = {};
@@ -356,6 +380,363 @@ function sortLogsForDate(date, items) {
   }
   for (const l of map.values()) sorted.push(l);
   return sorted;
+}
+
+function normalizeStudyPhase(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const name = typeof raw.name === "string" ? raw.name.trim().slice(0, 16) : "";
+  const startDate = /^\d{4}-\d{2}-\d{2}$/.test(raw.startDate) ? raw.startDate : "";
+  const endDate = /^\d{4}-\d{2}-\d{2}$/.test(raw.endDate) ? raw.endDate : "";
+  if (!name || !startDate || !endDate || startDate > endDate) return null;
+  return {
+    id: typeof raw.id === "string" && raw.id ? raw.id : uid(),
+    name,
+    startDate,
+    endDate,
+  };
+}
+
+function loadStudyPhases() {
+  try {
+    const raw = localStorage.getItem(STUDY_PHASES_KEY);
+    if (!raw) {
+      studyPhases = DEFAULT_STUDY_PHASES.map((p) => ({ ...p }));
+      return;
+    }
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) {
+      studyPhases = DEFAULT_STUDY_PHASES.map((p) => ({ ...p }));
+      return;
+    }
+    studyPhases = data.map(normalizeStudyPhase).filter(Boolean).slice(0, MAX_STUDY_PHASES);
+    if (!studyPhases.length) studyPhases = DEFAULT_STUDY_PHASES.map((p) => ({ ...p }));
+  } catch {
+    studyPhases = DEFAULT_STUDY_PHASES.map((p) => ({ ...p }));
+  }
+  sortStudyPhases();
+}
+
+function saveStudyPhases() {
+  localStorage.setItem(STUDY_PHASES_KEY, JSON.stringify(studyPhases));
+}
+
+function sortStudyPhases() {
+  studyPhases.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.endDate.localeCompare(b.endDate));
+}
+
+function minutesInDateRange(startDate, endDate, filterFn) {
+  return logs
+    .filter((l) => l.date >= startDate && l.date <= endDate && (!filterFn || filterFn(l)))
+    .reduce((s, l) => s + l.minutes, 0);
+}
+
+function getPhaseStudyStats(phase) {
+  const bySubject = {};
+  for (const cat of STUDY_CATS) {
+    bySubject[cat.label] = minutesInDateRange(phase.startDate, phase.endDate, (l) => l.subject === cat.label);
+  }
+  const totalStudy = minutesInDateRange(phase.startDate, phase.endDate, (l) => isStudyLabel(l.subject));
+  const studyDates = new Set(
+    logs.filter((l) => l.date >= phase.startDate && l.date <= phase.endDate && isStudyLabel(l.subject)).map((l) => l.date)
+  );
+  return { totalStudy, bySubject, studyDays: studyDates.size };
+}
+
+function getCurrentStudyPhase() {
+  const today = todayStr();
+  return studyPhases.find((p) => today >= p.startDate && today <= p.endDate);
+}
+
+function formatPhaseRange(phase) {
+  return `${phase.startDate.replace(/-/g, ".")} – ${phase.endDate.replace(/-/g, ".")}`;
+}
+
+function renderPhaseSubjectBars(bySubject, maxHint) {
+  const rows = STUDY_CATS.map((c) => ({ label: c.label, minutes: bySubject[c.label] || 0, primary: c.primary }));
+  const max = Math.max(maxHint || 0, ...rows.map((r) => r.minutes), 1);
+  return rows
+    .map((r) => {
+      const pct = Math.round((r.minutes / max) * 100);
+      const cls = r.primary ? "row primary-subject" : "row";
+      return `<div class="${cls}">
+        <span>${subjectEmoji(r.label)} ${r.label}</span>
+        <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+        <span>${formatHours(r.minutes)}</span>
+      </div>`;
+    })
+    .join("");
+}
+
+function renderPhaseStats() {
+  const listEl = document.getElementById("phaseStatsList");
+  const dashBanner = document.getElementById("dashPhaseBanner");
+  const current = getCurrentStudyPhase();
+
+  if (dashBanner) {
+    if (current) {
+      const stats = getPhaseStudyStats(current);
+      dashBanner.hidden = false;
+      const titleEl = document.getElementById("dashPhaseTitle");
+      const numsEl = document.getElementById("dashPhaseNums");
+      const hintEl = document.getElementById("dashPhaseHint");
+      if (titleEl) titleEl.textContent = `📆 ${current.name}`;
+      if (numsEl) numsEl.textContent = formatHours(stats.totalStudy);
+      if (hintEl) {
+        const shufen = formatHours(stats.bySubject["数分"] || 0);
+        const gaodai = formatHours(stats.bySubject["高代"] || 0);
+        hintEl.textContent = `${formatPhaseRange(current)} · 数分 ${shufen} · 高代 ${gaodai}`;
+      }
+    } else {
+      dashBanner.hidden = true;
+    }
+  }
+
+  if (!listEl) return;
+  if (!studyPhases.length) {
+    listEl.innerHTML = `<p class="empty">还没有阶段，请到「更多 → 复习阶段」添加。</p>`;
+    return;
+  }
+
+  const today = todayStr();
+  let prevTotal = 0;
+  listEl.innerHTML = studyPhases
+    .map((phase, index) => {
+      const stats = getPhaseStudyStats(phase);
+      const isCurrent = today >= phase.startDate && today <= phase.endDate;
+      const isPast = today > phase.endDate;
+      const delta = index > 0 ? stats.totalStudy - prevTotal : null;
+      prevTotal = stats.totalStudy;
+
+      let compare = "";
+      if (delta !== null) {
+        if (delta > 0) compare = `比上一阶段多 ${formatHours(delta)}`;
+        else if (delta < 0) compare = `比上一阶段少 ${formatHours(-delta)}`;
+        else compare = "与上一阶段相同";
+      }
+
+      return `<div class="phase-stat-card${isCurrent ? " phase-current" : ""}${isPast ? " phase-past" : ""}">
+        <div class="phase-stat-head">
+          <div>
+            <strong>${escapeHtml(phase.name)}</strong>
+            ${isCurrent ? '<span class="phase-tag">当前</span>' : ""}
+          </div>
+          <span class="phase-range">${escapeHtml(formatPhaseRange(phase))}</span>
+        </div>
+        <p class="phase-stat-summary">
+          总学习 <strong>${formatHours(stats.totalStudy)}</strong>
+          · ${stats.studyDays} 个学习日
+          ${compare ? ` · ${compare}` : ""}
+        </p>
+        <div class="subject-bars phase-bars">${renderPhaseSubjectBars(stats.bySubject)}</div>
+      </div>`;
+    })
+    .join("");
+}
+
+function renderPhaseEditList() {
+  const list = document.getElementById("phaseEditList");
+  if (!list) return;
+  if (!studyPhases.length) {
+    list.innerHTML = `<li class="empty-inline">暂无阶段，下面添加一个</li>`;
+    return;
+  }
+  list.innerHTML = studyPhases
+    .map(
+      (p) => `<li class="phase-edit-item">
+        <div class="phase-edit-main">
+          <strong>${escapeHtml(p.name)}</strong>
+          <span class="muted">${escapeHtml(formatPhaseRange(p))}</span>
+        </div>
+        <button type="button" class="btn ghost sm" data-del-phase="${escapeHtml(p.id)}">删</button>
+      </li>`
+    )
+    .join("");
+
+  list.querySelectorAll("[data-del-phase]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-del-phase");
+      studyPhases = studyPhases.filter((p) => p.id !== id);
+      saveStudyPhases();
+      renderPhaseEditList();
+      renderPhaseStats();
+    });
+  });
+}
+
+function initStudyPhases() {
+  loadStudyPhases();
+  renderPhaseEditList();
+
+  const form = document.getElementById("phaseAddForm");
+  if (!form) return;
+
+  const startInput = document.getElementById("phaseStartInput");
+  const endInput = document.getElementById("phaseEndInput");
+  if (startInput && !startInput.value) startInput.value = todayStr();
+  if (endInput && !endInput.value) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    endInput.value = d.toISOString().slice(0, 10);
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (studyPhases.length >= MAX_STUDY_PHASES) {
+      alert(`最多 ${MAX_STUDY_PHASES} 个阶段`);
+      return;
+    }
+    const name = document.getElementById("phaseNameInput").value.trim();
+    const startDate = startInput?.value;
+    const endDate = endInput?.value;
+    const phase = normalizeStudyPhase({ id: uid(), name, startDate, endDate });
+    if (!phase) {
+      alert("请检查名称和日期（结束不能早于开始）");
+      return;
+    }
+    studyPhases.push(phase);
+    sortStudyPhases();
+    saveStudyPhases();
+    document.getElementById("phaseNameInput").value = "";
+    renderPhaseEditList();
+    renderPhaseStats();
+    showToast("📆 阶段已添加");
+  });
+}
+
+function loadSubjectGoals() {
+  try {
+    const raw = localStorage.getItem(SUBJECT_GOALS_KEY);
+    if (!raw) {
+      subjectGoals = { ...DEFAULT_SUBJECT_GOALS };
+      return;
+    }
+    const data = JSON.parse(raw);
+    if (typeof data !== "object" || Array.isArray(data)) {
+      subjectGoals = { ...DEFAULT_SUBJECT_GOALS };
+      return;
+    }
+    subjectGoals = {};
+    for (const cat of STUDY_CATS) {
+      const h = Number(data[cat.label]);
+      subjectGoals[cat.label] = h > 0 ? Math.min(2000, h) : 0;
+    }
+  } catch {
+    subjectGoals = { ...DEFAULT_SUBJECT_GOALS };
+  }
+}
+
+function saveSubjectGoals() {
+  localStorage.setItem(SUBJECT_GOALS_KEY, JSON.stringify(subjectGoals));
+}
+
+function totalMinutesForSubject(label) {
+  return logs.filter((l) => l.subject === label).reduce((s, l) => s + l.minutes, 0);
+}
+
+function activeSubjectGoals() {
+  return STUDY_CATS
+    .map((c) => c.label)
+    .filter((label) => subjectGoals[label] > 0)
+    .map((label) => ({
+      label,
+      goalHours: subjectGoals[label],
+      goalMinutes: Math.round(subjectGoals[label] * 60),
+      doneMinutes: totalMinutesForSubject(label),
+    }));
+}
+
+function progressRowHtml({ label, goalHours, goalMinutes, doneMinutes }, compact) {
+  const pct = goalMinutes > 0 ? Math.min(100, Math.round((doneMinutes / goalMinutes) * 100)) : 0;
+  const color = PIE_COLORS[label] || PIE_COLORS.其他;
+  const emoji = subjectEmoji(label);
+  const doneH = formatHours(doneMinutes);
+  const goalH = formatHours(goalMinutes);
+  return `<div class="subject-progress-row${pct >= 100 ? " subject-done" : ""}">
+    <div class="subject-progress-row-head">
+      <span class="subject-progress-name">${emoji} ${escapeHtml(label)}</span>
+      <span class="subject-progress-nums">${doneH} / ${goalH} · ${pct}%</span>
+    </div>
+    <div class="goal-track subject-track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${escapeHtml(label)} 复习进度">
+      <div class="goal-fill subject-fill${pct >= 100 ? " complete" : ""}" style="width:${pct}%;background:linear-gradient(90deg, ${color}, ${color})"></div>
+    </div>
+    ${compact ? "" : `<p class="subject-progress-sub">${pct >= 100 ? "🎉 该科目标已达成" : `还差 ${formatHours(goalMinutes - doneMinutes)}`}</p>`}
+  </div>`;
+}
+
+function renderSubjectProgress() {
+  const rows = activeSubjectGoals();
+  const banner = document.getElementById("subjectProgressBanner");
+  const overallNums = document.getElementById("overallProgressNums");
+  const overallFill = document.getElementById("overallProgressFill");
+  const list = document.getElementById("subjectProgressList");
+  const empty = document.getElementById("subjectProgressEmpty");
+  const statsEl = document.getElementById("statsSubjectProgress");
+
+  const totalGoalMin = rows.reduce((s, r) => s + r.goalMinutes, 0);
+  const totalDoneMin = rows.reduce((s, r) => s + r.doneMinutes, 0);
+  const overallPct = totalGoalMin > 0 ? Math.min(100, Math.round((totalDoneMin / totalGoalMin) * 100)) : 0;
+
+  if (banner) {
+    if (!rows.length) {
+      banner.hidden = true;
+    } else {
+      banner.hidden = false;
+      if (overallNums) overallNums.textContent = `${formatHours(totalDoneMin)} / ${formatHours(totalGoalMin)}`;
+      if (overallFill) {
+        overallFill.style.width = `${overallPct}%`;
+        overallFill.classList.toggle("complete", totalDoneMin >= totalGoalMin);
+      }
+      if (list) list.innerHTML = rows.map((r) => progressRowHtml(r, true)).join("");
+      if (empty) empty.hidden = true;
+    }
+  }
+
+  if (statsEl) {
+    if (!rows.length) {
+      statsEl.innerHTML = `<p class="empty">尚未设置科目目标，请到「更多 → 科目进度目标」填写。</p>`;
+    } else {
+      statsEl.innerHTML = `<div class="stats-overall-block">
+        <div class="subject-progress-row-head">
+          <span class="subject-progress-name">📚 全科合计</span>
+          <span class="subject-progress-nums">${formatHours(totalDoneMin)} / ${formatHours(totalGoalMin)} · ${overallPct}%</span>
+        </div>
+        <div class="goal-track overall-track">
+          <div class="goal-fill${totalDoneMin >= totalGoalMin ? " complete" : ""}" style="width:${overallPct}%"></div>
+        </div>
+      </div>
+      ${rows.map((r) => progressRowHtml(r, false)).join("")}`;
+    }
+  }
+}
+
+function renderSubjectGoalsForm() {
+  const form = document.getElementById("subjectGoalsForm");
+  if (!form) return;
+  form.innerHTML = STUDY_CATS.map(
+    (c) => `<label>
+      ${subjectEmoji(c.label)} ${c.label}（小时）
+      <input type="number" name="goal-${c.label}" min="0" max="2000" step="10" value="${subjectGoals[c.label] || 0}" />
+    </label>`
+  ).join("") + `<button type="submit" class="btn primary full">保存科目目标</button>`;
+}
+
+function initSubjectGoalsForm() {
+  loadSubjectGoals();
+  renderSubjectGoalsForm();
+  const form = document.getElementById("subjectGoalsForm");
+  if (!form) return;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    for (const cat of STUDY_CATS) {
+      const input = form.querySelector(`[name="goal-${cat.label}"]`);
+      const h = input ? Number(input.value) : 0;
+      subjectGoals[cat.label] = h > 0 ? Math.min(2000, h) : 0;
+    }
+    saveSubjectGoals();
+    renderSubjectGoalsForm();
+    renderSubjectProgress();
+    showToast("📊 科目进度目标已保存");
+  });
 }
 
 function loadCountdown() {
@@ -736,7 +1117,7 @@ function initMobileNav() {
   const panels = document.querySelectorAll("[data-panel]");
 
   function applyTab(tab) {
-    const name = tab || localStorage.getItem(TAB_KEY) || "timer";
+    const name = tab || localStorage.getItem(TAB_KEY) || "home";
     if (isMobileLayout()) {
       panels.forEach((panel) => {
         panel.classList.toggle("panel-active", panel.dataset.panel === name);
@@ -750,12 +1131,174 @@ function initMobileNav() {
     }
   }
 
+  function navigateToTab(tab, scrollId) {
+    applyTab(tab);
+    if (scrollId) {
+      setTimeout(() => {
+        const el = document.getElementById(scrollId);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }
+
   tabs.forEach((btn) => {
     btn.addEventListener("click", () => applyTab(btn.dataset.tab));
   });
 
-  window.addEventListener("resize", () => applyTab(localStorage.getItem(TAB_KEY) || "timer"));
-  applyTab(localStorage.getItem(TAB_KEY) || "timer");
+  document.querySelectorAll("[data-goto]").forEach((btn) => {
+    btn.addEventListener("click", () => navigateToTab(btn.dataset.goto, btn.dataset.scroll || ""));
+  });
+
+  window.addEventListener("resize", () => applyTab(localStorage.getItem(TAB_KEY) || "home"));
+  applyTab(localStorage.getItem(TAB_KEY) || "home");
+}
+
+function studyMinutesByDate() {
+  const map = {};
+  for (const l of logs) {
+    if (!isStudyLabel(l.subject)) continue;
+    map[l.date] = (map[l.date] || 0) + l.minutes;
+  }
+  return map;
+}
+
+function sumStudyInDayRange(startOffset, days) {
+  let total = 0;
+  for (let i = startOffset; i < startOffset + days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0, 10);
+    total += minutesOnDate(ds, (l) => isStudyLabel(l.subject));
+  }
+  return total;
+}
+
+function getTodayRankInfo() {
+  const today = todayStr();
+  const todayMin = minutesOnDate(today, (l) => isStudyLabel(l.subject));
+  if (!todayMin) return null;
+  const byDate = studyMinutesByDate();
+  const sorted = Object.entries(byDate)
+    .filter(([, m]) => m > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const rank = sorted.findIndex(([date]) => date === today) + 1;
+  const best = sorted[0]?.[1] || 0;
+  return {
+    rank: rank || sorted.length,
+    total: sorted.length,
+    todayMin,
+    best,
+    isRecord: todayMin >= best,
+  };
+}
+
+function formatShortDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  const today = todayStr();
+  if (dateStr === today) return "今天";
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (dateStr === yesterday.toISOString().slice(0, 10)) return "昨天";
+  return `${y}-${m}-${d}`;
+}
+
+function leaderboardMedal(rank) {
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return `#${rank}`;
+}
+
+function leaderboardRowHtml(rank, date, minutes, highlight) {
+  return `<div class="leaderboard-row${highlight ? " is-today" : ""}">
+    <span class="lb-rank">${leaderboardMedal(rank)}</span>
+    <span class="lb-date">${escapeHtml(formatShortDate(date))}</span>
+    <span class="lb-hours">${formatHours(minutes)}</span>
+  </div>`;
+}
+
+function renderDashboard() {
+  const study = minutesOnDate(todayStr(), (l) => isStudyLabel(l.subject));
+  const streak = calcStreak();
+  const dashStudy = document.getElementById("dashTodayStudy");
+  const dashStreak = document.getElementById("dashStreak");
+  if (dashStudy) dashStudy.textContent = formatHours(study);
+  if (dashStreak) dashStreak.textContent = streak >= 2 ? `🔥 ${streak} 天` : `${streak} 天`;
+
+  const rankInfo = getTodayRankInfo();
+  const rankWrap = document.getElementById("dashRankWrap");
+  const rankEl = document.getElementById("dashTodayRank");
+  if (rankInfo && study > 0) {
+    if (rankWrap) rankWrap.hidden = false;
+    if (rankEl) {
+      rankEl.textContent = rankInfo.isRecord ? "新纪录!" : `#${rankInfo.rank}`;
+    }
+  } else if (rankWrap) {
+    rankWrap.hidden = true;
+  }
+}
+
+function renderSelfLeaderboard() {
+  const byDate = studyMinutesByDate();
+  const rows = Object.entries(byDate)
+    .filter(([, m]) => m > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const today = todayStr();
+
+  const dashEl = document.getElementById("dashLeaderboard");
+  if (dashEl) {
+    if (!rows.length) {
+      dashEl.innerHTML = `<p class="empty">还没有学习记录，点「专注计时」开始吧</p>`;
+    } else {
+      const preview = rows.slice(0, 5);
+      dashEl.innerHTML = preview
+        .map(([date, min], i) => leaderboardRowHtml(i + 1, date, min, date === today))
+        .join("");
+    }
+  }
+
+  const fullEl = document.getElementById("selfLeaderboardFull");
+  if (fullEl) {
+    if (!rows.length) {
+      fullEl.innerHTML = `<p class="empty">暂无排行数据</p>`;
+    } else {
+      fullEl.innerHTML = rows
+        .map(([date, min], i) => leaderboardRowHtml(i + 1, date, min, date === today))
+        .join("");
+    }
+  }
+
+  const weekEl = document.getElementById("weekCompare");
+  if (weekEl) {
+    const thisWeek = sumStudyInDayRange(0, 7);
+    const lastWeek = sumStudyInDayRange(7, 7);
+    const diff = thisWeek - lastWeek;
+    const diffLabel =
+      diff > 0 ? `↑ 多 ${formatHours(diff)}` : diff < 0 ? `↓ 少 ${formatHours(-diff)}` : "持平";
+    const diffClass = diff > 0 ? "up" : diff < 0 ? "down" : "flat";
+    weekEl.innerHTML = `<div class="week-compare-grid">
+      <div class="week-compare-item"><span>近 7 天</span><strong>${formatHours(thisWeek)}</strong></div>
+      <div class="week-compare-item"><span>上一周期</span><strong>${formatHours(lastWeek)}</strong></div>
+      <div class="week-compare-item"><span>对比</span><strong class="week-diff ${diffClass}">${diffLabel}</strong></div>
+    </div>`;
+  }
+
+  const recEl = document.getElementById("selfRecords");
+  if (recEl) {
+    if (!rows.length) {
+      recEl.innerHTML = "";
+    } else {
+      const best = rows[0];
+      const studyDays = rows.length;
+      const totalAll = rows.reduce((s, [, m]) => s + m, 0);
+      const rankInfo = getTodayRankInfo();
+      recEl.innerHTML = `<div class="self-records-grid">
+        <div class="record-pill"><span>单日最高</span><strong>${formatHours(best[1])}</strong><small>${escapeHtml(formatShortDate(best[0]))}</small></div>
+        <div class="record-pill"><span>有学习的天</span><strong>${studyDays} 天</strong><small>累计 ${formatHours(totalAll)}</small></div>
+        <div class="record-pill"><span>今日排名</span><strong>${rankInfo ? (rankInfo.isRecord ? "第 1 🎉" : `第 ${rankInfo.rank} 名`) : "—"}</strong><small>共 ${rows.length} 个学习日</small></div>
+      </div>`;
+    }
+  }
 }
 
 function calcStreak() {
@@ -1336,7 +1879,11 @@ function renderAll() {
     streakEl.textContent = streak >= 2 ? `🔥 ${streak} 天` : `${streak} 天`;
   }
   renderEncouragement();
+  renderDashboard();
   renderCountdown();
+  renderSubjectProgress();
+  renderSelfLeaderboard();
+  renderPhaseStats();
   renderWeekChart();
   renderPieCharts();
   renderCalendar();
@@ -1759,6 +2306,8 @@ function initTools() {
       timerMode,
       dayLogOrder,
       countdown,
+      subjectGoals,
+      studyPhases,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
@@ -1811,6 +2360,19 @@ function applyBackupData(data) {
       };
       saveCountdown();
     }
+    if (data.subjectGoals && typeof data.subjectGoals === "object" && !Array.isArray(data.subjectGoals)) {
+      subjectGoals = {};
+      for (const cat of STUDY_CATS) {
+        const h = Number(data.subjectGoals[cat.label]);
+        subjectGoals[cat.label] = h > 0 ? Math.min(2000, h) : 0;
+      }
+      saveSubjectGoals();
+    }
+    if (Array.isArray(data.studyPhases)) {
+      studyPhases = data.studyPhases.map(normalizeStudyPhase).filter(Boolean).slice(0, MAX_STUDY_PHASES);
+      sortStudyPhases();
+      saveStudyPhases();
+    }
   } else {
     throw new Error("invalid");
   }
@@ -1822,6 +2384,7 @@ function applyBackupData(data) {
   renderCustomList();
   renderSubtaskPresetList();
   updateSubtaskDatalists();
+  renderPhaseEditList();
   renderAll();
 }
 
@@ -1948,6 +2511,8 @@ initTimerMode();
 initTimer();
 initDailyGoalForm();
 initCountdownForm();
+initSubjectGoalsForm();
+initStudyPhases();
 initTools();
 initFileDrop();
 renderAll();

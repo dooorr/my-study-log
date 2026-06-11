@@ -17,6 +17,7 @@
 
 - **倒数日**（默认考研初试，可在「更多」里改日期和名称）
 - 每日学习目标（默认 8h，仅统计学习类科目）与顶部进度条
+- **科目复习进度条**（数分/高代/英语/政治总时长目标，首页 + 统计页）
 - 记睡眠、手动补录
 - 今日记录列表：**拖左侧 ⋮⋮ 可调整显示顺序**（不影响时长统计）
 - 连续打卡天数
@@ -35,9 +36,16 @@
 - JSON 导出 / 导入备份；**把备份 JSON 拖到页面上也可导入**
 - 添加到主屏幕说明（Safari / Chrome）
 
+### 首页看板
+
+- 数据看板：今日学习、连续打卡、今日历史排名、倒数日、目标与科目进度
+- 四宫格入口：计时 / 今日 / 统计 / 设置（点进去再看具体功能）
+- **和自己比**的学习日排行榜（非社交排行）
+- **阶段统计**：基础/强化/冲刺等自定义阶段的学习汇总与科目分布
+
 ### 手机
 
-- 底栏：计时 / 今日 / 统计 / 更多
+- 底栏：首页 / 计时 / 今日 / 统计 / 更多
 - 建议 Safari 打开并「添加到主屏幕」当 App 用
 
 ## 数据与备份
@@ -45,7 +53,7 @@
 - 打卡数据**不会上传到 GitHub**，只存在本机浏览器 `localStorage`
 - 清缓存、换浏览器会丢数据，请定期「更多 → 导出 JSON」
 - 电脑与手机数据**不自动同步**，换设备用导出 / 导入
-- 备份 JSON 当前字段：`logs`、`customCategories`、`subtasksLibrary`、`dailyGoalHours`、`pomodoro`、`timerMode`、`dayLogOrder`、`countdown`（可选）
+- 备份 JSON 当前字段：`logs`、`customCategories`、`subtasksLibrary`、`dailyGoalHours`、`pomodoro`、`timerMode`、`dayLogOrder`、`countdown`、`subjectGoals`、`studyPhases`（可选）
 
 ## 本地运行
 

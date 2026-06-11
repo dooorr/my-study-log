@@ -22,15 +22,14 @@
     <p>📂 松开即可导入备份 JSON</p>
   </div>
   <div class="app">
-    <header class="header">
+    <header class="header header-compact">
       <div class="header-main">
         <h1>📚 学习打卡</h1>
-        <p class="subtitle">学习 · 睡觉 · 玩手机 · 可自定义</p>
-        <p class="encourage-line" id="encourageLine" aria-live="polite"></p>
+        <p class="subtitle desktop-only">学习 · 睡觉 · 玩手机 · 可自定义</p>
       </div>
       <div class="header-right">
         <button type="button" class="theme-toggle" id="themeToggle" aria-label="切换深色模式">🌙</button>
-        <div class="header-stats">
+        <div class="header-stats desktop-only">
           <div class="stat-pill">
             <span class="label">📖 今日学习</span>
             <span class="value" id="todayTotal">0h</span>
@@ -43,31 +42,101 @@
       </div>
     </header>
 
-    <section class="countdown-banner card" id="countdownBanner" hidden aria-label="倒数日">
-      <div class="countdown-inner">
-        <div class="countdown-text">
-          <span class="countdown-label" id="countdownLabel">考研初试</span>
-          <p class="countdown-sub" id="countdownSub"></p>
-        </div>
-        <div class="countdown-nums" id="countdownNums">
-          <span class="countdown-days" id="countdownDays">0</span>
-          <span class="countdown-unit" id="countdownUnit">天</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="daily-goal-banner card" id="dailyGoalBanner" aria-label="今日学习目标">
-      <div class="goal-head">
-        <span class="goal-title">🎯 今日学习目标</span>
-        <span class="goal-nums" id="goalNums">0h / 8h</span>
-      </div>
-      <div class="goal-track">
-        <div class="goal-fill" id="goalFill"></div>
-      </div>
-      <p class="goal-hint" id="goalHint">还差 8.0h</p>
-    </section>
-
     <main class="grid" id="mainGrid">
+      <section class="card span-2 dashboard-home" data-panel="home" aria-label="数据看板">
+        <p class="encourage-line" id="encourageLine" aria-live="polite"></p>
+
+        <div class="dash-hero">
+          <div class="dash-hero-stat primary">
+            <strong id="dashTodayStudy">0h</strong>
+            <span>📖 今日学习</span>
+          </div>
+          <div class="dash-hero-stat">
+            <strong id="dashStreak">0 天</strong>
+            <span>🔥 连续打卡</span>
+          </div>
+          <div class="dash-hero-stat accent" id="dashRankWrap" hidden>
+            <strong id="dashTodayRank">—</strong>
+            <span>🏆 历史排名</span>
+          </div>
+        </div>
+
+        <div class="countdown-banner dash-block" id="countdownBanner" hidden aria-label="倒数日">
+          <div class="countdown-inner">
+            <div class="countdown-text">
+              <span class="countdown-label" id="countdownLabel">考研初试</span>
+              <p class="countdown-sub" id="countdownSub"></p>
+            </div>
+            <div class="countdown-nums" id="countdownNums">
+              <span class="countdown-days" id="countdownDays">0</span>
+              <span class="countdown-unit" id="countdownUnit">天</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="daily-goal-banner dash-block" id="dailyGoalBanner" aria-label="今日学习目标">
+          <div class="goal-head">
+            <span class="goal-title">🎯 今日学习目标</span>
+            <span class="goal-nums" id="goalNums">0h / 8h</span>
+          </div>
+          <div class="goal-track">
+            <div class="goal-fill" id="goalFill"></div>
+          </div>
+          <p class="goal-hint" id="goalHint">还差 8.0h</p>
+        </div>
+
+        <div class="subject-progress-banner dash-block" id="subjectProgressBanner" hidden aria-label="科目复习进度">
+          <div class="subject-progress-head">
+            <span class="goal-title">📊 总复习进度</span>
+            <span class="goal-nums" id="overallProgressNums">0h / 0h</span>
+          </div>
+          <div class="goal-track overall-track">
+            <div class="goal-fill" id="overallProgressFill"></div>
+          </div>
+          <div class="subject-progress-list" id="subjectProgressList"></div>
+          <p class="muted block subject-progress-empty" id="subjectProgressEmpty" hidden>在「更多 → 科目进度目标」设置各科总时长。</p>
+        </div>
+
+        <div class="dash-phase dash-block" id="dashPhaseBanner" hidden aria-label="当前复习阶段">
+          <div class="goal-head">
+            <span class="goal-title" id="dashPhaseTitle">📆 当前阶段</span>
+            <span class="goal-nums" id="dashPhaseNums">0h</span>
+          </div>
+          <p class="goal-hint" id="dashPhaseHint"></p>
+        </div>
+
+        <div class="dash-nav" aria-label="功能入口">
+          <button type="button" class="dash-tile" data-goto="timer">
+            <span class="dash-tile-icon">⏱</span>
+            <span class="dash-tile-title">专注计时</span>
+            <span class="dash-tile-sub">番茄钟 · 正计时</span>
+          </button>
+          <button type="button" class="dash-tile" data-goto="today">
+            <span class="dash-tile-icon">📋</span>
+            <span class="dash-tile-title">今日记录</span>
+            <span class="dash-tile-sub">睡眠 · 补录</span>
+          </button>
+          <button type="button" class="dash-tile" data-goto="stats">
+            <span class="dash-tile-icon">📊</span>
+            <span class="dash-tile-title">数据统计</span>
+            <span class="dash-tile-sub">图表 · 日历</span>
+          </button>
+          <button type="button" class="dash-tile" data-goto="more">
+            <span class="dash-tile-icon">⚙</span>
+            <span class="dash-tile-title">设置</span>
+            <span class="dash-tile-sub">目标 · 备份</span>
+          </button>
+        </div>
+
+        <div class="dash-leaderboard">
+          <div class="card-head">
+            <h2>🏆 学习日排行</h2>
+            <button type="button" class="btn ghost sm" data-goto="stats" data-scroll="leaderboardSection">全部</button>
+          </div>
+          <p class="muted block dash-leaderboard-note">只和自己比：哪一天学得最久，今天排第几</p>
+          <div id="dashLeaderboard"></div>
+        </div>
+      </section>
       <section class="card timer-card" data-panel="timer">
         <h2>⏱ 专注计时</h2>
         <div class="timer-mode-row">
@@ -145,6 +214,33 @@
           </label>
           <button type="submit" class="btn primary full">添加记录</button>
         </form>
+      </section>
+
+      <section class="card span-2" data-panel="stats" id="leaderboardSection">
+        <div class="card-head">
+          <h2>🏆 和自己比 · 学习日排行榜</h2>
+          <span class="muted" id="weekCompareLabel">近 7 天对比</span>
+        </div>
+        <div class="week-compare" id="weekCompare"></div>
+        <div class="self-records" id="selfRecords"></div>
+        <div class="leaderboard-table" id="selfLeaderboardFull"></div>
+      </section>
+
+      <section class="card span-2" data-panel="stats">
+        <div class="card-head">
+          <h2>📊 科目复习进度</h2>
+          <span class="muted" id="statsProgressHint">累计学习时长 / 目标</span>
+        </div>
+        <div id="statsSubjectProgress"></div>
+      </section>
+
+      <section class="card span-2" data-panel="stats" id="phaseStatsSection">
+        <div class="card-head">
+          <h2>📆 阶段统计</h2>
+          <button type="button" class="btn ghost sm" data-goto="more" data-scroll="phaseSettingsSection">设置阶段</button>
+        </div>
+        <p class="muted block">按复习阶段汇总学习时长，看各阶段数分/高代分布。</p>
+        <div id="phaseStatsList"></div>
       </section>
 
       <section class="card span-2" data-panel="stats">
@@ -253,6 +349,29 @@
           <button type="submit" class="btn primary full">保存</button>
         </form>
 
+        <h2 style="margin-top:1.25rem" id="phaseSettingsSection">📆 复习阶段</h2>
+        <p class="muted block">自定义阶段起止日期，用于阶段统计。最多 4 个，按时间先后排列。</p>
+        <ul class="phase-edit-list" id="phaseEditList"></ul>
+        <form id="phaseAddForm" class="form phase-add-form">
+          <label>
+            阶段名称
+            <input type="text" id="phaseNameInput" placeholder="例如：强化阶段" maxlength="16" required />
+          </label>
+          <label>
+            开始日期
+            <input type="date" id="phaseStartInput" required />
+          </label>
+          <label>
+            结束日期
+            <input type="date" id="phaseEndInput" required />
+          </label>
+          <button type="submit" class="btn primary full">添加阶段</button>
+        </form>
+
+        <h2 style="margin-top:1.25rem">📊 科目进度目标</h2>
+        <p class="muted block">各科计划总学习时长（小时），用于首页与统计页的进度条。填 0 表示不显示该科。</p>
+        <form id="subjectGoalsForm" class="form subject-goals-form"></form>
+
         <h2 style="margin-top:1.25rem">🎯 每日学习目标</h2>
         <p class="muted block">只统计「学习」类科目（数分、高代、英语、政治等），不含睡觉和玩手机。</p>
         <form id="dailyGoalForm" class="goal-form">
@@ -315,7 +434,11 @@
     </main>
 
     <nav class="bottom-nav" id="bottomNav" aria-label="主导航">
-      <button type="button" class="nav-btn active" data-tab="timer">
+      <button type="button" class="nav-btn active" data-tab="home">
+        <span class="nav-icon" aria-hidden="true">🏠</span>
+        <span>首页</span>
+      </button>
+      <button type="button" class="nav-btn" data-tab="timer">
         <span class="nav-icon" aria-hidden="true">⏱</span>
         <span>计时</span>
       </button>
