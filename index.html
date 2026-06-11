@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d6e6e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>考研学习打卡 · 数学学硕</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-main">
+        <h1>考研打卡</h1>
+        <p class="subtitle">学习 · 睡觉 · 玩手机 · 可自定义</p>
+      </div>
+      <div class="header-stats">
+        <div class="stat-pill">
+          <span class="label">今日学习</span>
+          <span class="value" id="todayTotal">0h</span>
+        </div>
+        <div class="stat-pill accent">
+          <span class="label">连续</span>
+          <span class="value" id="streakDays">0 天</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="grid" id="mainGrid">
+      <section class="card timer-card" data-panel="timer">
+        <h2>专注计时</h2>
+        <p class="focus-note">玩手机可计时；学习选数分/高代；睡觉建议用下方「记睡眠」</p>
+        <div class="subject-chips" id="timerChips" aria-label="选择类别"></div>
+        <p class="timer-subject desktop-only">
+          类别：<select id="timerSubject"></select>
+        </p>
+        <div class="subtask-block" id="subtaskBlock">
+          <label class="subtask-label">
+            子任务（可选）
+            <input type="text" id="timerSubtask" placeholder="例如：4.2、第五章习题" maxlength="30" list="timerSubtaskList" />
+            <datalist id="timerSubtaskList"></datalist>
+          </label>
+          <div class="subtask-chips" id="subtaskChips"></div>
+        </div>
+        <div class="timer-display" id="timerDisplay">00:00:00</div>
+        <p class="timer-hint" id="timerHint">当前：数分</p>
+        <div class="btn-row timer-actions">
+          <button type="button" class="btn primary btn-lg" id="timerStart">开始</button>
+          <button type="button" class="btn btn-lg" id="timerPause" disabled>暂停</button>
+          <button type="button" class="btn danger btn-lg" id="timerStop" disabled>结束记录</button>
+        </div>
+      </section>
+
+      <section class="card" data-panel="today">
+        <h2>记睡眠</h2>
+        <form id="sleepForm" class="form sleep-form">
+          <label>
+            起床日期
+            <input type="date" id="sleepWakeDate" required />
+          </label>
+          <label>
+            入睡时间
+            <input type="time" id="sleepBedTime" value="23:30" required />
+          </label>
+          <label>
+            起床时间
+            <input type="time" id="sleepWakeTime" value="07:00" required />
+          </label>
+          <button type="submit" class="btn primary full">记录睡眠</button>
+        </form>
+      </section>
+
+      <section class="card" data-panel="today">
+        <h2>手动补录</h2>
+        <form id="manualForm" class="form">
+          <label>
+            日期
+            <input type="date" id="manualDate" required />
+          </label>
+          <label>
+            类别
+            <select id="manualSubject" required></select>
+          </label>
+          <label>
+            时长（分钟）
+            <input type="number" id="manualMinutes" min="1" max="720" value="60" required />
+          </label>
+          <label class="full">
+            子任务（可选）
+            <input type="text" id="manualSubtask" placeholder="例如：4.2、线代习题 2-3" maxlength="30" list="manualSubtaskList" />
+            <datalist id="manualSubtaskList"></datalist>
+          </label>
+          <label class="full">
+            备注（可选）
+            <input type="text" id="manualNote" placeholder="额外说明" maxlength="80" />
+          </label>
+          <button type="submit" class="btn primary full">添加记录</button>
+        </form>
+      </section>
+
+      <section class="card span-2" data-panel="stats">
+        <div class="card-head">
+          <h2>近 7 天学习</h2>
+          <span class="muted" id="weekTotal">本周学习 0h</span>
+        </div>
+        <div class="chart" id="weekChart"></div>
+      </section>
+
+      <section class="card span-2" data-panel="today">
+        <div class="card-head">
+          <h2>今日概览</h2>
+        </div>
+        <div class="today-mini-stats">
+          <div class="mini-stat"><span class="label">学习</span><strong id="todayStudy">0h</strong></div>
+          <div class="mini-stat sleep"><span class="label">睡觉</span><strong id="todaySleep">—</strong></div>
+          <div class="mini-stat phone"><span class="label">玩手机</span><strong id="todayPhone">—</strong></div>
+        </div>
+        <div class="card-head" style="margin-top:1rem">
+          <h2>今日记录</h2>
+          <button type="button" class="btn ghost sm" id="clearToday">清空今日</button>
+        </div>
+        <ul class="log-list" id="todayList"></ul>
+        <p class="empty" id="todayEmpty">今天还没有记录。</p>
+      </section>
+
+      <section class="card span-2" data-panel="stats">
+        <div class="card-head">
+          <h2>近 30 天分布</h2>
+        </div>
+        <div class="subject-bars" id="subjectBars"></div>
+      </section>
+
+      <section class="card span-2" data-panel="stats">
+        <div class="card-head">
+          <h2>子任务统计（近 30 天学习）</h2>
+        </div>
+        <p class="focus-note">有子任务的记录会显示为「数分 · 4.2」这种格式。</p>
+        <div class="subject-bars" id="subtaskBars"></div>
+      </section>
+
+      <section class="card span-2 tools" data-panel="more">
+        <h2>自定义类别</h2>
+        <p class="muted block">例如：运动、吃饭、通勤。添加后可计时或手动记。</p>
+        <form id="customCatForm" class="custom-add-row">
+          <input type="text" id="customCatName" placeholder="输入名称，最多 12 字" maxlength="12" required />
+          <button type="submit" class="btn primary">添加</button>
+        </form>
+        <ul class="custom-cat-list" id="customCatList"></ul>
+
+        <h2 style="margin-top:1.25rem">子任务预设</h2>
+        <p class="muted block">给科目加常用子任务，计时时可一键点选。例如数分 → 4.2</p>
+        <form id="subtaskPresetForm" class="form subtask-preset-form">
+          <label>
+            科目
+            <select id="presetSubject"></select>
+          </label>
+          <label>
+            子任务名
+            <input type="text" id="presetSubtaskName" placeholder="例如：4.2" maxlength="30" required />
+          </label>
+          <button type="submit" class="btn primary full">添加预设</button>
+        </form>
+        <ul class="custom-cat-list" id="subtaskPresetList"></ul>
+
+        <h2 style="margin-top:1.25rem">数据备份</h2>
+        <p class="muted block">数据存在本机浏览器。换设备前请导出。</p>
+        <div class="btn-row">
+          <button type="button" class="btn" id="exportBtn">导出 JSON</button>
+          <label class="btn file-btn">
+            导入备份
+            <input type="file" id="importFile" accept="application/json" hidden />
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" id="bottomNav" aria-label="主导航">
+      <button type="button" class="nav-btn active" data-tab="timer">
+        <span class="nav-icon" aria-hidden="true">⏱</span>
+        <span>计时</span>
+      </button>
+      <button type="button" class="nav-btn" data-tab="today">
+        <span class="nav-icon" aria-hidden="true">📋</span>
+        <span>今日</span>
+      </button>
+      <button type="button" class="nav-btn" data-tab="stats">
+        <span class="nav-icon" aria-hidden="true">📊</span>
+        <span>统计</span>
+      </button>
+      <button type="button" class="nav-btn" data-tab="more">
+        <span class="nav-icon" aria-hidden="true">⚙</span>
+        <span>更多</span>
+      </button>
+    </nav>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
