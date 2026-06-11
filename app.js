@@ -3,6 +3,25 @@ const CUSTOM_CATS_KEY = "kaoyan_custom_categories_v1";
 const SUBTASKS_KEY = "kaoyan_subtasks_library_v1";
 const TAB_KEY = "kaoyan_active_tab_v1";
 const SUBJECT_KEY = "kaoyan_timer_subject_v1";
+const PIE_RANGE_KEY = "kaoyan_pie_range_v1";
+const DAILY_GOAL_KEY = "kaoyan_daily_goal_v1";
+
+const DEFAULT_DAILY_GOAL_HOURS = 8;
+
+const PIE_COLORS = {
+  数分: "#0d6e6e",
+  高代: "#14a3a3",
+  英语: "#94a3b8",
+  政治: "#78716c",
+  学习: "#0d6e6e",
+  睡觉: "#6366f1",
+  玩手机: "#d97706",
+  其他: "#a8a29e",
+};
+
+let pieRangeDays = 30;
+/** @type {number} 每日学习目标（分钟） */
+let dailyGoalMinutes = DEFAULT_DAILY_GOAL_HOURS * 60;
 
 const STUDY_CATS = [
   { label: "数分", group: "study", primary: true },
@@ -150,6 +169,54 @@ function loadLogs() {
 
 function saveLogs() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+}
+
+function loadDailyGoal() {
+  const raw = localStorage.getItem(DAILY_GOAL_KEY);
+  const hours = raw ? Number(raw) : DEFAULT_DAILY_GOAL_HOURS;
+  if (hours >= 1 && hours <= 16) {
+    dailyGoalMinutes = Math.round(hours * 60);
+  } else {
+    dailyGoalMinutes = DEFAULT_DAILY_GOAL_HOURS * 60;
+  }
+}
+
+function saveDailyGoal(hours) {
+  const h = Math.min(16, Math.max(1, hours));
+  dailyGoalMinutes = Math.round(h * 60);
+  localStorage.setItem(DAILY_GOAL_KEY, String(h));
+  renderDailyGoal();
+}
+
+function renderDailyGoal() {
+  const nums = document.getElementById("goalNums");
+  const fill = document.getElementById("goalFill");
+  const hint = document.getElementById("goalHint");
+  const banner = document.getElementById("dailyGoalBanner");
+  if (!nums || !fill || !hint) return;
+
+  const study = minutesOnDate(todayStr(), (l) => isStudyLabel(l.subject));
+  const goal = dailyGoalMinutes;
+  const pct = goal > 0 ? Math.min(100, Math.round((study / goal) * 100)) : 0;
+  const goalH = formatHours(goal);
+  const studyH = formatHours(study);
+
+  nums.textContent = `${studyH} / ${goalH}`;
+  fill.style.width = `${pct}%`;
+  fill.classList.toggle("complete", study >= goal);
+
+  if (banner) banner.classList.toggle("goal-done", study >= goal);
+
+  const remainMin = goal - study;
+  if (study >= goal) {
+    hint.textContent = "今日目标已达成";
+  } else if (remainMin >= 60) {
+    hint.textContent = `还差 ${formatHours(remainMin)}`;
+  } else if (remainMin > 0) {
+    hint.textContent = `还差 ${formatMinutes(remainMin)}`;
+  } else {
+    hint.textContent = "开始计时吧";
+  }
 }
 
 function todayStr() {
@@ -422,6 +489,114 @@ function lastNDays(n) {
   return out;
 }
 
+function sinceStrForRange(days) {
+  const since = new Date();
+  since.setDate(since.getDate() - (days - 1));
+  return since.toISOString().slice(0, 10);
+}
+
+function colorForSubject(label) {
+  return PIE_COLORS[label] || "#8b5cf6";
+}
+
+function buildPieHtml(title, slices) {
+  const data = slices.filter((s) => s.minutes > 0);
+  const total = data.reduce((s, x) => s + x.minutes, 0);
+  if (!total) {
+    return `<div class="pie-card">
+      <h3 class="pie-title">${title}</h3>
+      <div class="pie-empty">暂无数据</div>
+    </div>`;
+  }
+
+  let acc = 0;
+  const stops = data
+    .map((s) => {
+      const pct = (s.minutes / total) * 100;
+      const start = acc;
+      acc += pct;
+      return `${s.color} ${start.toFixed(2)}% ${acc.toFixed(2)}%`;
+    })
+    .join(", ");
+
+  const legend = data
+    .map((s) => {
+      const pct = Math.round((s.minutes / total) * 100);
+      return `<li>
+        <span class="pie-dot" style="background:${s.color}"></span>
+        <span class="pie-name">${escapeHtml(s.label)}</span>
+        <span class="pie-val">${formatHours(s.minutes)} · ${pct}%</span>
+      </li>`;
+    })
+    .join("");
+
+  return `<div class="pie-card">
+    <h3 class="pie-title">${title}</h3>
+    <div class="pie-body">
+      <div class="pie-ring" style="background:conic-gradient(${stops})" role="img" aria-label="${title}"></div>
+      <ul class="pie-legend">${legend}</ul>
+    </div>
+  </div>`;
+}
+
+function renderPieCharts() {
+  const el = document.getElementById("pieGrid");
+  if (!el) return;
+
+  const sinceStr = sinceStrForRange(pieRangeDays);
+  const recent = logs.filter((l) => l.date >= sinceStr);
+  const rangeLabel = pieRangeDays === 7 ? "近7天" : "近30天";
+
+  const studyTotals = Object.fromEntries(STUDY_CATS.map((c) => [c.label, 0]));
+  let studyAll = 0;
+  let sleep = 0;
+  let phone = 0;
+  let other = 0;
+
+  for (const l of recent) {
+    if (isStudyLabel(l.subject)) {
+      studyTotals[l.subject] = (studyTotals[l.subject] || 0) + l.minutes;
+      studyAll += l.minutes;
+    } else if (l.subject === "睡觉") sleep += l.minutes;
+    else if (l.subject === "玩手机") phone += l.minutes;
+    else other += l.minutes;
+  }
+
+  const studySlices = STUDY_CATS.map((c) => ({
+    label: c.label,
+    minutes: studyTotals[c.label] || 0,
+    color: colorForSubject(c.label),
+  }));
+
+  const overviewSlices = [
+    { label: "学习", minutes: studyAll, color: PIE_COLORS.学习 },
+    { label: "睡觉", minutes: sleep, color: PIE_COLORS.睡觉 },
+    { label: "玩手机", minutes: phone, color: PIE_COLORS.玩手机 },
+  ];
+  if (other > 0) overviewSlices.push({ label: "其他", minutes: other, color: PIE_COLORS.其他 });
+
+  el.innerHTML =
+    buildPieHtml(`${rangeLabel} · 学习科目`, studySlices) +
+    buildPieHtml(`${rangeLabel} · 时间结构`, overviewSlices);
+
+  document.querySelectorAll("#pieRangeChips .range-chip").forEach((btn) => {
+    btn.classList.toggle("active", Number(btn.dataset.range) === pieRangeDays);
+  });
+}
+
+function initPieRange() {
+  const saved = Number(localStorage.getItem(PIE_RANGE_KEY));
+  if (saved === 7 || saved === 30) pieRangeDays = saved;
+
+  document.querySelectorAll("#pieRangeChips .range-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      pieRangeDays = Number(btn.dataset.range);
+      localStorage.setItem(PIE_RANGE_KEY, String(pieRangeDays));
+      renderPieCharts();
+    });
+  });
+}
+
 function renderWeekChart() {
   const days = lastNDays(7);
   const studyMins = (date) => minutesOnDate(date, (l) => isStudyLabel(l.subject));
@@ -570,6 +745,7 @@ function renderTodaySummary() {
   document.getElementById("todaySleep").textContent = sleep ? formatHours(sleep) : "—";
   document.getElementById("todayPhone").textContent = phone ? formatHours(phone) : "—";
   document.getElementById("todayTotal").textContent = formatHours(study);
+  renderDailyGoal();
 }
 
 function renderTodayList() {
@@ -618,6 +794,7 @@ function escapeHtml(s) {
 function renderAll() {
   document.getElementById("streakDays").textContent = `${calcStreak()} 天`;
   renderWeekChart();
+  renderPieCharts();
   renderSubjectBars();
   renderSubtaskBars();
   renderTodayList();
@@ -786,6 +963,18 @@ function initTimer() {
   setTimerUI();
 }
 
+function initDailyGoalForm() {
+  loadDailyGoal();
+  const input = document.getElementById("dailyGoalHours");
+  if (input) input.value = String(dailyGoalMinutes / 60);
+
+  document.getElementById("dailyGoalForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveDailyGoal(Number(document.getElementById("dailyGoalHours").value));
+    if (input) input.value = String(dailyGoalMinutes / 60);
+  });
+}
+
 function initTools() {
   document.getElementById("clearToday").addEventListener("click", () => {
     if (!confirm("确定删除今天的全部记录？")) return;
@@ -795,7 +984,13 @@ function initTools() {
   });
 
   document.getElementById("exportBtn").addEventListener("click", () => {
-    const payload = { version: 3, logs, customCategories, subtasksLibrary };
+    const payload = {
+      version: 3,
+      logs,
+      customCategories,
+      subtasksLibrary,
+      dailyGoalHours: dailyGoalMinutes / 60,
+    };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -823,6 +1018,9 @@ function initTools() {
             subtasksLibrary = data.subtasksLibrary;
             saveSubtasksLibrary();
           }
+          if (data.dailyGoalHours && Number(data.dailyGoalHours) >= 1) {
+            saveDailyGoal(Number(data.dailyGoalHours));
+          }
         } else {
           throw new Error("invalid");
         }
@@ -846,12 +1044,14 @@ function initTools() {
 }
 
 loadLogs();
+loadDailyGoal();
 fillSubjectSelects();
 fillPresetSubjectSelect();
 renderTimerChips();
 renderCustomList();
 renderSubtaskPresetList();
 updateSubtaskDatalists();
+initPieRange();
 initMobileNav();
 initManualForm();
 initSleepForm();
@@ -859,5 +1059,6 @@ initCustomForm();
 initSubtaskPresetForm();
 initTimerSubtaskInput();
 initTimer();
+initDailyGoalForm();
 initTools();
 renderAll();

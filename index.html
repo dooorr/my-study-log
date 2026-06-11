@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#0d6e6e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>考研学习打卡 · 数学学硕</title>
+  <title>学习打卡</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
     <header class="header">
       <div class="header-main">
-        <h1>考研打卡</h1>
+        <h1>学习打卡</h1>
         <p class="subtitle">学习 · 睡觉 · 玩手机 · 可自定义</p>
       </div>
       <div class="header-stats">
@@ -27,6 +27,17 @@
         </div>
       </div>
     </header>
+
+    <section class="daily-goal-banner card" id="dailyGoalBanner" aria-label="今日学习目标">
+      <div class="goal-head">
+        <span class="goal-title">今日学习目标</span>
+        <span class="goal-nums" id="goalNums">0h / 8h</span>
+      </div>
+      <div class="goal-track">
+        <div class="goal-fill" id="goalFill"></div>
+      </div>
+      <p class="goal-hint" id="goalHint">还差 8.0h</p>
+    </section>
 
     <main class="grid" id="mainGrid">
       <section class="card timer-card" data-panel="timer">
@@ -127,6 +138,17 @@
 
       <section class="card span-2" data-panel="stats">
         <div class="card-head">
+          <h2>时间占比</h2>
+          <div class="range-chips" id="pieRangeChips">
+            <button type="button" class="chip range-chip" data-range="7">7天</button>
+            <button type="button" class="chip range-chip active" data-range="30">30天</button>
+          </div>
+        </div>
+        <div class="pie-grid" id="pieGrid"></div>
+      </section>
+
+      <section class="card span-2" data-panel="stats">
+        <div class="card-head">
           <h2>近 30 天分布</h2>
         </div>
         <div class="subject-bars" id="subjectBars"></div>
@@ -141,7 +163,17 @@
       </section>
 
       <section class="card span-2 tools" data-panel="more">
-        <h2>自定义类别</h2>
+        <h2>每日学习目标</h2>
+        <p class="muted block">只统计「学习」类科目（数分、高代、英语、政治等），不含睡觉和玩手机。</p>
+        <form id="dailyGoalForm" class="goal-form">
+          <label>
+            每天学习（小时）
+            <input type="number" id="dailyGoalHours" min="1" max="16" step="0.5" value="8" required />
+          </label>
+          <button type="submit" class="btn primary">保存目标</button>
+        </form>
+
+        <h2 style="margin-top:1.25rem">自定义类别</h2>
         <p class="muted block">例如：运动、吃饭、通勤。添加后可计时或手动记。</p>
         <form id="customCatForm" class="custom-add-row">
           <input type="text" id="customCatName" placeholder="输入名称，最多 12 字" maxlength="12" required />
