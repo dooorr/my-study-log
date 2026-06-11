@@ -18,6 +18,9 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="drop-overlay" id="dropOverlay" hidden aria-hidden="true">
+    <p>📂 松开即可导入备份 JSON</p>
+  </div>
   <div class="app">
     <header class="header">
       <div class="header-main">
@@ -39,6 +42,19 @@
         </div>
       </div>
     </header>
+
+    <section class="countdown-banner card" id="countdownBanner" hidden aria-label="倒数日">
+      <div class="countdown-inner">
+        <div class="countdown-text">
+          <span class="countdown-label" id="countdownLabel">考研初试</span>
+          <p class="countdown-sub" id="countdownSub"></p>
+        </div>
+        <div class="countdown-nums" id="countdownNums">
+          <span class="countdown-days" id="countdownDays">0</span>
+          <span class="countdown-unit" id="countdownUnit">天</span>
+        </div>
+      </div>
+    </section>
 
     <section class="daily-goal-banner card" id="dailyGoalBanner" aria-label="今日学习目标">
       <div class="goal-head">
@@ -169,6 +185,7 @@
           <h2>📝 今日记录</h2>
           <button type="button" class="btn ghost sm" id="clearToday">清空今日</button>
         </div>
+        <p class="muted block drag-hint">拖左侧 ⋮⋮ 可调整顺序；拖 JSON 文件到页面可导入备份。</p>
         <ul class="log-list" id="todayList"></ul>
         <p class="empty" id="todayEmpty">今天还没有记录。</p>
       </section>
@@ -217,6 +234,24 @@
             <li>选<strong>添加到主屏幕</strong>或<strong>安装应用</strong></li>
           </ol>
         </div>
+
+        <h2 style="margin-top:1.25rem">📅 倒数日</h2>
+        <p class="muted block">显示在首页顶部，默认目标为当年 12 月下旬初试（可改）。</p>
+        <form id="countdownForm" class="form countdown-form">
+          <label>
+            事件名称
+            <input type="text" id="countdownLabelInput" maxlength="20" value="考研初试" required />
+          </label>
+          <label>
+            目标日期
+            <input type="date" id="countdownDateInput" required />
+          </label>
+          <label class="checkbox-label full">
+            <input type="checkbox" id="countdownEnabled" checked />
+            在首页显示倒数
+          </label>
+          <button type="submit" class="btn primary full">保存</button>
+        </form>
 
         <h2 style="margin-top:1.25rem">🎯 每日学习目标</h2>
         <p class="muted block">只统计「学习」类科目（数分、高代、英语、政治等），不含睡觉和玩手机。</p>

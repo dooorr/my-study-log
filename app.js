@@ -9,6 +9,14 @@ const TIMER_MODE_KEY = "kaoyan_timer_mode_v1";
 const POMODORO_WORK_KEY = "kaoyan_pomodoro_work_v1";
 const POMODORO_BREAK_KEY = "kaoyan_pomodoro_break_v1";
 const THEME_KEY = "kaoyan_theme_v1";
+const LOG_ORDER_KEY = "kaoyan_log_order_v1";
+const COUNTDOWN_KEY = "kaoyan_countdown_v1";
+
+const DEFAULT_COUNTDOWN = {
+  label: "考研初试",
+  date: "2026-12-21",
+  enabled: true,
+};
 
 const DEFAULT_DAILY_GOAL_HOURS = 8;
 
@@ -104,6 +112,12 @@ const LEGACY_SUBJECT_MAP = {
 
 /** @type {string[]} */
 let customCategories = [];
+
+/** @type {Record<string, string[]>} 日期 -> 记录 id 顺序（仅影响列表展示） */
+let dayLogOrder = {};
+
+/** @type {{ label: string, date: string, enabled: boolean }} */
+let countdown = { ...DEFAULT_COUNTDOWN };
 
 /** @type {Record<string, string[]>} */
 let subtasksLibrary = {};
@@ -292,6 +306,150 @@ function loadLogs() {
 
 function saveLogs() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+}
+
+function loadLogOrder() {
+  try {
+    const raw = localStorage.getItem(LOG_ORDER_KEY);
+    dayLogOrder = raw ? JSON.parse(raw) : {};
+    if (typeof dayLogOrder !== "object" || Array.isArray(dayLogOrder)) dayLogOrder = {};
+  } catch {
+    dayLogOrder = {};
+  }
+}
+
+function saveLogOrder() {
+  localStorage.setItem(LOG_ORDER_KEY, JSON.stringify(dayLogOrder));
+}
+
+function appendLogOrder(date, id) {
+  if (!date || !id) return;
+  const order = dayLogOrder[date] ? [...dayLogOrder[date]] : [];
+  if (!order.includes(id)) order.push(id);
+  dayLogOrder[date] = order;
+  saveLogOrder();
+}
+
+function removeLogOrderId(id) {
+  for (const date of Object.keys(dayLogOrder)) {
+    dayLogOrder[date] = dayLogOrder[date].filter((x) => x !== id);
+    if (!dayLogOrder[date].length) delete dayLogOrder[date];
+  }
+  saveLogOrder();
+}
+
+function setDayLogOrder(date, ids) {
+  dayLogOrder[date] = ids;
+  saveLogOrder();
+}
+
+function sortLogsForDate(date, items) {
+  const order = dayLogOrder[date];
+  if (!order?.length) return items.sort((a, b) => b.id.localeCompare(a.id));
+  const map = new Map(items.map((l) => [l.id, l]));
+  const sorted = [];
+  for (const id of order) {
+    if (map.has(id)) {
+      sorted.push(map.get(id));
+      map.delete(id);
+    }
+  }
+  for (const l of map.values()) sorted.push(l);
+  return sorted;
+}
+
+function loadCountdown() {
+  try {
+    const raw = localStorage.getItem(COUNTDOWN_KEY);
+    const data = raw ? JSON.parse(raw) : null;
+    if (data && typeof data === "object") {
+      countdown = {
+        label: typeof data.label === "string" && data.label.trim() ? data.label.trim().slice(0, 20) : DEFAULT_COUNTDOWN.label,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(data.date) ? data.date : DEFAULT_COUNTDOWN.date,
+        enabled: Boolean(data.enabled),
+      };
+    }
+  } catch {
+    countdown = { ...DEFAULT_COUNTDOWN };
+  }
+}
+
+function saveCountdown() {
+  localStorage.setItem(COUNTDOWN_KEY, JSON.stringify(countdown));
+}
+
+function daysFromTodayTo(dateStr) {
+  const today = new Date(`${todayStr()}T12:00:00`);
+  const target = new Date(`${dateStr}T12:00:00`);
+  return Math.round((target - today) / 86400000);
+}
+
+function formatCountdownDateLabel(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${y}年${Number(m)}月${Number(d)}日`;
+}
+
+function renderCountdown() {
+  const banner = document.getElementById("countdownBanner");
+  const labelEl = document.getElementById("countdownLabel");
+  const daysEl = document.getElementById("countdownDays");
+  const unitEl = document.getElementById("countdownUnit");
+  const subEl = document.getElementById("countdownSub");
+  const numsEl = document.getElementById("countdownNums");
+  if (!banner || !countdown.enabled || !countdown.date) {
+    if (banner) banner.hidden = true;
+    return;
+  }
+
+  const diff = daysFromTodayTo(countdown.date);
+  banner.hidden = false;
+  banner.classList.toggle("countdown-today", diff === 0);
+  banner.classList.toggle("countdown-past", diff < 0);
+  banner.classList.toggle("countdown-urgent", diff > 0 && diff <= 30);
+
+  if (labelEl) labelEl.textContent = `📅 距离${countdown.label}`;
+  if (subEl) subEl.textContent = formatCountdownDateLabel(countdown.date);
+
+  if (diff > 0) {
+    if (daysEl) daysEl.textContent = String(diff);
+    if (unitEl) unitEl.textContent = "天";
+    if (numsEl) numsEl.hidden = false;
+  } else if (diff === 0) {
+    if (daysEl) daysEl.textContent = "今天";
+    if (unitEl) unitEl.textContent = "";
+    if (numsEl) numsEl.hidden = false;
+  } else {
+    if (numsEl) numsEl.hidden = true;
+    if (subEl) subEl.textContent = `${formatCountdownDateLabel(countdown.date)} · 已过 ${-diff} 天`;
+  }
+}
+
+function initCountdownForm() {
+  loadCountdown();
+  const labelInput = document.getElementById("countdownLabelInput");
+  const dateInput = document.getElementById("countdownDateInput");
+  const enabledInput = document.getElementById("countdownEnabled");
+  const form = document.getElementById("countdownForm");
+  if (!form || !labelInput || !dateInput || !enabledInput) return;
+
+  labelInput.value = countdown.label;
+  dateInput.value = countdown.date;
+  enabledInput.checked = countdown.enabled;
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const label = labelInput.value.trim().slice(0, 20);
+    const date = dateInput.value;
+    if (!label || !date) return;
+    countdown = {
+      label,
+      date,
+      enabled: enabledInput.checked,
+    };
+    saveCountdown();
+    renderCountdown();
+    showToast("📅 倒数日已保存");
+  });
 }
 
 function loadDailyGoal() {
@@ -895,7 +1053,7 @@ function renderTodaySummary() {
 
 function renderTodayList() {
   const today = todayStr();
-  const items = logs.filter((l) => l.date === today).sort((a, b) => b.id.localeCompare(a.id));
+  const items = sortLogsForDate(today, logs.filter((l) => l.date === today));
   const list = document.getElementById("todayList");
   const empty = document.getElementById("todayEmpty");
 
@@ -910,14 +1068,15 @@ function renderTodayList() {
   empty.style.display = "none";
   list.innerHTML = items
     .map(
-      (l) => `<li class="log-item">
-        <div>
+      (l) => `<li class="log-item" data-id="${escapeHtml(l.id)}">
+        <span class="drag-handle" draggable="true" aria-label="拖动排序" title="拖动排序">⋮⋮</span>
+        <div class="log-item-main">
           <span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryDisplay(l.subject, l.subtask))}</span>
           <strong>${formatMinutes(l.minutes)}</strong>
           ${l.note ? `<span class="log-meta"> · ${escapeHtml(l.note)}</span>` : ""}
         </div>
-        <div>
-          <span class="log-meta">${l.source === "timer" ? "计时" : l.source === "sleep" ? "睡眠" : "手动"}</span>
+        <div class="log-item-actions">
+          <span class="log-meta">${l.source === "timer" ? "计时" : l.source === "pomodoro" ? "番茄" : l.source === "sleep" ? "睡眠" : "手动"}</span>
           <button type="button" class="btn ghost sm" data-del="${l.id}">删</button>
         </div>
       </li>`
@@ -926,9 +1085,80 @@ function renderTodayList() {
 
   list.querySelectorAll("[data-del]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      logs = logs.filter((l) => l.id !== btn.getAttribute("data-del"));
+      const id = btn.getAttribute("data-del");
+      logs = logs.filter((l) => l.id !== id);
+      removeLogOrderId(id);
       saveLogs();
       renderAll();
+    });
+  });
+  initLogListDrag(list, today);
+}
+
+function initLogListDrag(list, date) {
+  if (!list) return;
+  let dragEl = null;
+  let touchDrag = null;
+
+  const saveOrderFromDom = () => {
+    const ids = [...list.querySelectorAll(".log-item")].map((el) => el.dataset.id).filter(Boolean);
+    setDayLogOrder(date, ids);
+  };
+
+  list.querySelectorAll(".log-item").forEach((item) => {
+    const handle = item.querySelector(".drag-handle");
+    if (!handle) return;
+
+    handle.addEventListener("dragstart", (e) => {
+      dragEl = item;
+      item.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", item.dataset.id);
+      e.stopPropagation();
+    });
+
+    item.addEventListener("dragover", (e) => {
+      if (!dragEl || dragEl === item) return;
+      e.preventDefault();
+      const rect = item.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (e.clientY < mid) {
+        list.insertBefore(dragEl, item);
+      } else {
+        list.insertBefore(dragEl, item.nextSibling);
+      }
+    });
+
+    handle.addEventListener("dragend", () => {
+      item.classList.remove("dragging");
+      dragEl = null;
+      saveOrderFromDom();
+    });
+
+    handle.addEventListener("touchstart", (e) => {
+      touchDrag = { el: item };
+      item.classList.add("dragging");
+    }, { passive: true });
+
+    handle.addEventListener("touchmove", (e) => {
+      if (!touchDrag) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const over = document.elementFromPoint(touch.clientX, touch.clientY)?.closest(".log-item");
+      if (!over || over === touchDrag.el || !list.contains(over)) return;
+      const rect = over.getBoundingClientRect();
+      if (touch.clientY < rect.top + rect.height / 2) {
+        list.insertBefore(touchDrag.el, over);
+      } else {
+        list.insertBefore(touchDrag.el, over.nextSibling);
+      }
+    }, { passive: false });
+
+    handle.addEventListener("touchend", () => {
+      if (!touchDrag) return;
+      touchDrag.el.classList.remove("dragging");
+      touchDrag = null;
+      saveOrderFromDom();
     });
   });
 }
@@ -1106,6 +1336,7 @@ function renderAll() {
     streakEl.textContent = streak >= 2 ? `🔥 ${streak} 天` : `${streak} 天`;
   }
   renderEncouragement();
+  renderCountdown();
   renderWeekChart();
   renderPieCharts();
   renderCalendar();
@@ -1117,8 +1348,9 @@ function renderAll() {
 function addLog({ date, subject, subtask, minutes, note, source }) {
   if (minutes < 1) return;
   const st = (subtask || "").trim().slice(0, 30);
+  const id = uid();
   logs.push({
-    id: uid(),
+    id,
     date,
     subject,
     subtask: st,
@@ -1126,6 +1358,7 @@ function addLog({ date, subject, subtask, minutes, note, source }) {
     note: note || "",
     source: source || "manual",
   });
+  appendLogOrder(date, id);
   rememberSubtask(subject, st);
   saveLogs();
   renderAll();
@@ -1504,7 +1737,10 @@ function initDailyGoalForm() {
 function initTools() {
   document.getElementById("clearToday").addEventListener("click", () => {
     if (!confirm("确定删除今天的全部记录？")) return;
-    logs = logs.filter((l) => l.date !== todayStr());
+    const today = todayStr();
+    logs = logs.filter((l) => l.date !== today);
+    delete dayLogOrder[today];
+    saveLogOrder();
     saveLogs();
     renderAll();
   });
@@ -1521,6 +1757,8 @@ function initTools() {
       pomodoroWorkMin,
       pomodoroBreakMin,
       timerMode,
+      dayLogOrder,
+      countdown,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
@@ -1533,47 +1771,130 @@ function initTools() {
   document.getElementById("importFile").addEventListener("change", (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    importBackupFile(file).finally(() => {
+      e.target.value = "";
+    });
+  });
+}
+
+function applyBackupData(data) {
+  if (Array.isArray(data)) {
+    logs = data;
+  } else if (data && Array.isArray(data.logs)) {
+    logs = data.logs;
+    if (Array.isArray(data.customCategories)) {
+      customCategories = data.customCategories;
+      saveCustomCategories();
+    }
+    if (data.subtasksLibrary && typeof data.subtasksLibrary === "object") {
+      subtasksLibrary = data.subtasksLibrary;
+      saveSubtasksLibrary();
+    }
+    if (data.dailyGoalHours && Number(data.dailyGoalHours) >= 1) {
+      saveDailyGoal(Number(data.dailyGoalHours));
+    }
+    if (data.pomodoroWorkMin) savePomodoroSettings(Number(data.pomodoroWorkMin), pomodoroBreakMin);
+    if (data.pomodoroBreakMin) savePomodoroSettings(pomodoroWorkMin, Number(data.pomodoroBreakMin));
+    if (data.timerMode === "pomodoro" || data.timerMode === "normal") setTimerMode(data.timerMode);
+    if (data.dayLogOrder && typeof data.dayLogOrder === "object" && !Array.isArray(data.dayLogOrder)) {
+      dayLogOrder = data.dayLogOrder;
+      saveLogOrder();
+    }
+    if (data.countdown && typeof data.countdown === "object") {
+      countdown = {
+        label:
+          typeof data.countdown.label === "string" && data.countdown.label.trim()
+            ? data.countdown.label.trim().slice(0, 20)
+            : DEFAULT_COUNTDOWN.label,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(data.countdown.date) ? data.countdown.date : DEFAULT_COUNTDOWN.date,
+        enabled: Boolean(data.countdown.enabled),
+      };
+      saveCountdown();
+    }
+  } else {
+    throw new Error("invalid");
+  }
+  migrateLogs();
+  saveLogs();
+  fillSubjectSelects();
+  fillPresetSubjectSelect();
+  renderTimerChips();
+  renderCustomList();
+  renderSubtaskPresetList();
+  updateSubtaskDatalists();
+  renderAll();
+}
+
+function importBackupFile(file) {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        if (Array.isArray(data)) {
-          logs = data;
-        } else if (data && Array.isArray(data.logs)) {
-          logs = data.logs;
-          if (Array.isArray(data.customCategories)) {
-            customCategories = data.customCategories;
-            saveCustomCategories();
-          }
-          if (data.subtasksLibrary && typeof data.subtasksLibrary === "object") {
-            subtasksLibrary = data.subtasksLibrary;
-            saveSubtasksLibrary();
-          }
-          if (data.dailyGoalHours && Number(data.dailyGoalHours) >= 1) {
-            saveDailyGoal(Number(data.dailyGoalHours));
-          }
-          if (data.pomodoroWorkMin) savePomodoroSettings(Number(data.pomodoroWorkMin), pomodoroBreakMin);
-          if (data.pomodoroBreakMin) savePomodoroSettings(pomodoroWorkMin, Number(data.pomodoroBreakMin));
-          if (data.timerMode === "pomodoro" || data.timerMode === "normal") setTimerMode(data.timerMode);
-        } else {
-          throw new Error("invalid");
-        }
-        migrateLogs();
-        saveLogs();
-        fillSubjectSelects();
-        fillPresetSubjectSelect();
-        renderTimerChips();
-        renderCustomList();
-        renderSubtaskPresetList();
-        updateSubtaskDatalists();
-        renderAll();
-        alert("导入成功");
+        applyBackupData(data);
+        showToast("✅ 备份导入成功");
+        resolve();
       } catch {
         alert("文件格式不对");
+        reject();
       }
-      e.target.value = "";
     };
+    reader.onerror = () => reject();
     reader.readAsText(file);
+  });
+}
+
+function initFileDrop() {
+  const overlay = document.getElementById("dropOverlay");
+  if (!overlay) return;
+
+  let depth = 0;
+
+  const isFileDrag = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+
+  const show = () => {
+    overlay.hidden = false;
+    overlay.setAttribute("aria-hidden", "false");
+  };
+
+  const hide = () => {
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+  };
+
+  document.addEventListener("dragenter", (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    depth += 1;
+    show();
+  });
+
+  document.addEventListener("dragleave", (e) => {
+    if (!isFileDrag(e)) return;
+    depth -= 1;
+    if (depth <= 0) {
+      depth = 0;
+      hide();
+    }
+  });
+
+  document.addEventListener("dragover", (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+  });
+
+  document.addEventListener("drop", (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    depth = 0;
+    hide();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith(".json") && file.type !== "application/json") {
+      alert("请拖入 JSON 备份文件");
+      return;
+    }
+    importBackupFile(file);
   });
 }
 
@@ -1605,6 +1926,7 @@ function initTheme() {
 }
 
 loadLogs();
+loadLogOrder();
 loadDailyGoal();
 initTheme();
 fillSubjectSelects();
@@ -1625,5 +1947,7 @@ initPomodoroForm();
 initTimerMode();
 initTimer();
 initDailyGoalForm();
+initCountdownForm();
 initTools();
+initFileDrop();
 renderAll();
