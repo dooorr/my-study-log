@@ -7,6 +7,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <title>学习打卡</title>
+  <script>
+    (function () {
+      var t = localStorage.getItem("kaoyan_theme_v1");
+      if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -16,14 +24,17 @@
         <h1>学习打卡</h1>
         <p class="subtitle">学习 · 睡觉 · 玩手机 · 可自定义</p>
       </div>
-      <div class="header-stats">
-        <div class="stat-pill">
-          <span class="label">今日学习</span>
-          <span class="value" id="todayTotal">0h</span>
-        </div>
-        <div class="stat-pill accent">
-          <span class="label">连续</span>
-          <span class="value" id="streakDays">0 天</span>
+      <div class="header-right">
+        <button type="button" class="theme-toggle" id="themeToggle" aria-label="切换深色模式">🌙</button>
+        <div class="header-stats">
+          <div class="stat-pill">
+            <span class="label">今日学习</span>
+            <span class="value" id="todayTotal">0h</span>
+          </div>
+          <div class="stat-pill accent">
+            <span class="label">连续</span>
+            <span class="value" id="streakDays">0 天</span>
+          </div>
         </div>
       </div>
     </header>
@@ -42,7 +53,11 @@
     <main class="grid" id="mainGrid">
       <section class="card timer-card" data-panel="timer">
         <h2>专注计时</h2>
-        <p class="focus-note">玩手机可计时；学习选数分/高代；睡觉建议用下方「记睡眠」</p>
+        <div class="timer-mode-row">
+          <button type="button" class="chip mode-chip active" data-mode="normal">普通计时</button>
+          <button type="button" class="chip mode-chip" data-mode="pomodoro">番茄钟</button>
+        </div>
+        <p class="focus-note" id="timerModeHint">正计时，结束手动记录</p>
         <div class="subject-chips" id="timerChips" aria-label="选择类别"></div>
         <p class="timer-subject desktop-only">
           类别：<select id="timerSubject"></select>
@@ -55,7 +70,11 @@
           </label>
           <div class="subtask-chips" id="subtaskChips"></div>
         </div>
-        <div class="timer-display" id="timerDisplay">00:00:00</div>
+        <div class="timer-ring-wrap" id="timerRingWrap">
+          <div class="timer-ring" id="timerRing"></div>
+          <div class="timer-display" id="timerDisplay">00:00:00</div>
+        </div>
+        <p class="pomodoro-badge" id="pomodoroBadge" hidden></p>
         <p class="timer-hint" id="timerHint">当前：数分</p>
         <div class="btn-row timer-actions">
           <button type="button" class="btn primary btn-lg" id="timerStart">开始</button>
@@ -113,6 +132,23 @@
 
       <section class="card span-2" data-panel="stats">
         <div class="card-head">
+          <h2>学习日历</h2>
+          <div class="cal-nav">
+            <button type="button" class="btn ghost sm" id="calPrev" aria-label="上个月">‹</button>
+            <span class="cal-title" id="calTitle">2026年6月</span>
+            <button type="button" class="btn ghost sm" id="calNext" aria-label="下个月">›</button>
+          </div>
+        </div>
+        <p class="focus-note">颜色越深学习越多；点某天看详情。无法与系统日历自动同步，可导出 ICS 导入。</p>
+        <div class="cal-weekdays">
+          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-day-detail" id="calDayDetail"></div>
+      </section>
+
+      <section class="card span-2" data-panel="stats">
+        <div class="card-head">
           <h2>近 7 天学习</h2>
           <span class="muted" id="weekTotal">本周学习 0h</span>
         </div>
@@ -163,7 +199,25 @@
       </section>
 
       <section class="card span-2 tools" data-panel="more">
-        <h2>每日学习目标</h2>
+        <h2>添加到主屏幕</h2>
+        <p class="muted block">像 App 一样从桌面打开。选项在<strong>浏览器</strong>里，本页没有按钮。</p>
+        <div class="home-screen-steps">
+          <p><strong>iPhone（必须用 Safari）</strong></p>
+          <ol>
+            <li>用 Safari 打开本页（微信里点链接 → 右下角「…」→ 在 Safari 中打开）</li>
+            <li>点底部<strong>分享</strong>（方框带向上箭头）</li>
+            <li>向下滑，点<strong>添加到主屏幕</strong></li>
+            <li>点右上角<strong>添加</strong></li>
+          </ol>
+          <p><strong>安卓（Chrome）</strong></p>
+          <ol>
+            <li>用 Chrome 打开本页</li>
+            <li>点右上角<strong>⋮</strong>菜单</li>
+            <li>选<strong>添加到主屏幕</strong>或<strong>安装应用</strong></li>
+          </ol>
+        </div>
+
+        <h2 style="margin-top:1.25rem">每日学习目标</h2>
         <p class="muted block">只统计「学习」类科目（数分、高代、英语、政治等），不含睡觉和玩手机。</p>
         <form id="dailyGoalForm" class="goal-form">
           <label>
@@ -171,6 +225,20 @@
             <input type="number" id="dailyGoalHours" min="1" max="16" step="0.5" value="8" required />
           </label>
           <button type="submit" class="btn primary">保存目标</button>
+        </form>
+
+        <h2 style="margin-top:1.25rem">番茄钟设置</h2>
+        <p class="muted block">专注结束自动记入学习时长；休息不计入。默认 25 + 5 分钟。</p>
+        <form id="pomodoroForm" class="form pomodoro-form">
+          <label>
+            专注（分钟）
+            <input type="number" id="pomodoroWorkMin" min="5" max="90" step="5" value="25" required />
+          </label>
+          <label>
+            休息（分钟）
+            <input type="number" id="pomodoroBreakMin" min="1" max="30" step="1" value="5" required />
+          </label>
+          <button type="submit" class="btn primary full">保存</button>
         </form>
 
         <h2 style="margin-top:1.25rem">自定义类别</h2>
@@ -200,11 +268,13 @@
         <p class="muted block">数据存在本机浏览器。换设备前请导出。</p>
         <div class="btn-row">
           <button type="button" class="btn" id="exportBtn">导出 JSON</button>
+          <button type="button" class="btn" id="exportIcsBtn">导出日历 ICS</button>
           <label class="btn file-btn">
             导入备份
             <input type="file" id="importFile" accept="application/json" hidden />
           </label>
         </div>
+        <p class="muted block" style="margin-top:0.65rem">ICS：iPhone「文件」里打开 → 分享 → 日历。需手动重新导出，不会自动同步。</p>
       </section>
     </main>
 

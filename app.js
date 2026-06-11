@@ -5,6 +5,10 @@ const TAB_KEY = "kaoyan_active_tab_v1";
 const SUBJECT_KEY = "kaoyan_timer_subject_v1";
 const PIE_RANGE_KEY = "kaoyan_pie_range_v1";
 const DAILY_GOAL_KEY = "kaoyan_daily_goal_v1";
+const TIMER_MODE_KEY = "kaoyan_timer_mode_v1";
+const POMODORO_WORK_KEY = "kaoyan_pomodoro_work_v1";
+const POMODORO_BREAK_KEY = "kaoyan_pomodoro_break_v1";
+const THEME_KEY = "kaoyan_theme_v1";
 
 const DEFAULT_DAILY_GOAL_HOURS = 8;
 
@@ -56,6 +60,15 @@ let timerSeconds = 0;
 let timerTick = null;
 let timerRunning = false;
 let timerSubject = "数分";
+let timerMode = "normal";
+let pomodoroPhase = "idle";
+let pomodoroWorkMin = 25;
+let pomodoroBreakMin = 5;
+let pomodoroPhaseTotal = 0;
+let goalWasComplete = false;
+let calendarYear = new Date().getFullYear();
+let calendarMonth = new Date().getMonth();
+let selectedCalDate = "";
 
 function getBuiltinLabels() {
   return [...STUDY_CATS, ...LIFE_CATS].map((c) => c.label);
@@ -210,12 +223,21 @@ function renderDailyGoal() {
   const remainMin = goal - study;
   if (study >= goal) {
     hint.textContent = "今日目标已达成";
-  } else if (remainMin >= 60) {
-    hint.textContent = `还差 ${formatHours(remainMin)}`;
-  } else if (remainMin > 0) {
-    hint.textContent = `还差 ${formatMinutes(remainMin)}`;
+    if (!goalWasComplete && banner) {
+      goalWasComplete = true;
+      banner.classList.add("goal-celebrate");
+      setTimeout(() => banner.classList.remove("goal-celebrate"), 800);
+      pulseElement("timerRingWrap");
+    }
   } else {
-    hint.textContent = "开始计时吧";
+    goalWasComplete = false;
+    if (remainMin >= 60) {
+      hint.textContent = `还差 ${formatHours(remainMin)}`;
+    } else if (remainMin > 0) {
+      hint.textContent = `还差 ${formatMinutes(remainMin)}`;
+    } else {
+      hint.textContent = "开始计时吧";
+    }
   }
 }
 
@@ -791,10 +813,173 @@ function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function studyLevel(minutes) {
+  if (!minutes) return 0;
+  if (minutes < 120) return 1;
+  if (minutes < 240) return 2;
+  return 3;
+}
+
+function renderCalDayDetail(date) {
+  const el = document.getElementById("calDayDetail");
+  if (!el || !date) {
+    if (el) el.innerHTML = "";
+    return;
+  }
+
+  const items = logs.filter((l) => l.date === date).sort((a, b) => b.id.localeCompare(a.id));
+  const study = minutesOnDate(date, (l) => isStudyLabel(l.subject));
+  const label = date === todayStr() ? "今天" : date;
+
+  if (!items.length) {
+    el.innerHTML = `<p class="empty">${label}：无记录</p>`;
+    return;
+  }
+
+  el.innerHTML = `<p class="cal-detail-head"><strong>${label}</strong> · 学习 ${formatHours(study)}</p>
+    <ul class="log-list cal-detail-list">${items
+      .map(
+        (l) => `<li class="log-item">
+          <div>
+            <span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryTitle(l.subject, l.subtask))}</span>
+            <strong>${formatMinutes(l.minutes)}</strong>
+          </div>
+        </li>`
+      )
+      .join("")}</ul>`;
+}
+
+function renderCalendar() {
+  const grid = document.getElementById("calGrid");
+  const title = document.getElementById("calTitle");
+  if (!grid) return;
+
+  if (!selectedCalDate) selectedCalDate = todayStr();
+
+  if (title) title.textContent = `${calendarYear}年${calendarMonth + 1}月`;
+
+  const first = new Date(calendarYear, calendarMonth, 1);
+  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const startPad = (first.getDay() + 6) % 7;
+  const today = todayStr();
+
+  let html = "";
+  for (let i = 0; i < startPad; i++) html += `<div class="cal-cell cal-pad"></div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const study = minutesOnDate(date, (l) => isStudyLabel(l.subject));
+    const level = studyLevel(study);
+    const classes = ["cal-cell", `cal-l${level}`];
+    if (date === today) classes.push("cal-today");
+    if (date === selectedCalDate) classes.push("selected");
+    html += `<button type="button" class="${classes.join(" ")}" data-date="${date}">
+      <span class="cal-day-num">${d}</span>
+      ${study ? `<span class="cal-hrs">${formatHours(study)}</span>` : ""}
+    </button>`;
+  }
+
+  grid.innerHTML = html;
+  grid.querySelectorAll("[data-date]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      selectedCalDate = btn.dataset.date;
+      renderCalDayDetail(selectedCalDate);
+      renderCalendar();
+    });
+  });
+  renderCalDayDetail(selectedCalDate);
+}
+
+function icsEscape(text) {
+  return String(text).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+
+function formatIcsUtc(dateStr, minutesFromMidnight) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d, 0, minutesFromMidnight, 0);
+  return dt.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+}
+
+function exportICS() {
+  if (!logs.length) {
+    alert("还没有记录可导出");
+    return;
+  }
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//StudyLog//CN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+  ];
+
+  const byDate = {};
+  for (const log of logs) {
+    if (!byDate[log.date]) byDate[log.date] = [];
+    byDate[log.date].push(log);
+  }
+
+  for (const [date, dayLogs] of Object.entries(byDate)) {
+    let offsetMin = 480;
+    for (const log of dayLogs.sort((a, b) => a.id.localeCompare(b.id))) {
+      const startMin = offsetMin;
+      const endMin = startMin + log.minutes;
+      offsetMin = endMin + 5;
+      const title = formatEntryTitle(log.subject, log.subtask);
+      const uid = `study-${log.id}@my-study-log`;
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `DTSTAMP:${formatIcsUtc(todayStr(), 0)}`,
+        `DTSTART:${formatIcsUtc(date, startMin)}`,
+        `DTEND:${formatIcsUtc(date, endMin)}`,
+        `SUMMARY:${icsEscape(`${title} ${formatMinutes(log.minutes)}`)}`,
+        log.note ? `DESCRIPTION:${icsEscape(log.note)}` : "DESCRIPTION:学习打卡导出",
+        "END:VEVENT"
+      );
+    }
+  }
+
+  lines.push("END:VCALENDAR");
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `study-calendar-${todayStr()}.ics`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function initCalendar() {
+  const prev = document.getElementById("calPrev");
+  const next = document.getElementById("calNext");
+  if (prev) {
+    prev.addEventListener("click", () => {
+      calendarMonth -= 1;
+      if (calendarMonth < 0) {
+        calendarMonth = 11;
+        calendarYear -= 1;
+      }
+      renderCalendar();
+    });
+  }
+  if (next) {
+    next.addEventListener("click", () => {
+      calendarMonth += 1;
+      if (calendarMonth > 11) {
+        calendarMonth = 0;
+        calendarYear += 1;
+      }
+      renderCalendar();
+    });
+  }
+}
+
 function renderAll() {
   document.getElementById("streakDays").textContent = `${calcStreak()} 天`;
   renderWeekChart();
   renderPieCharts();
+  renderCalendar();
   renderSubjectBars();
   renderSubtaskBars();
   renderTodayList();
@@ -825,6 +1010,94 @@ function calcSleepMinutes(wakeDate, bedTime, wakeTime) {
   return mins > 0 && mins <= 16 * 60 ? mins : 0;
 }
 
+function pulseElement(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add("pulse-once");
+  setTimeout(() => el.classList.remove("pulse-once"), 600);
+  try {
+    navigator.vibrate?.([80, 40, 80]);
+  } catch {
+    /* ignore */
+  }
+}
+
+function celebratePomodoro(msg) {
+  const wrap = document.getElementById("timerRingWrap");
+  if (wrap) {
+    wrap.classList.add("celebrate");
+    setTimeout(() => wrap.classList.remove("celebrate"), 700);
+  }
+  try {
+    navigator.vibrate?.([100, 50, 100, 50, 100]);
+  } catch {
+    /* ignore */
+  }
+  const badge = document.getElementById("pomodoroBadge");
+  if (badge && msg) {
+    badge.textContent = msg;
+    badge.hidden = false;
+    setTimeout(() => {
+      if (!timerRunning) badge.hidden = true;
+    }, 2800);
+  }
+}
+
+function loadPomodoroSettings() {
+  const work = Number(localStorage.getItem(POMODORO_WORK_KEY));
+  const brk = Number(localStorage.getItem(POMODORO_BREAK_KEY));
+  if (work >= 5 && work <= 90) pomodoroWorkMin = work;
+  if (brk >= 1 && brk <= 30) pomodoroBreakMin = brk;
+  const mode = localStorage.getItem(TIMER_MODE_KEY);
+  if (mode === "pomodoro" || mode === "normal") timerMode = mode;
+}
+
+function savePomodoroSettings(work, breakMin) {
+  pomodoroWorkMin = Math.min(90, Math.max(5, Math.round(work)));
+  pomodoroBreakMin = Math.min(30, Math.max(1, Math.round(breakMin)));
+  localStorage.setItem(POMODORO_WORK_KEY, String(pomodoroWorkMin));
+  localStorage.setItem(POMODORO_BREAK_KEY, String(pomodoroBreakMin));
+  const hint = document.getElementById("timerModeHint");
+  if (hint && timerMode === "pomodoro") {
+    hint.textContent = `番茄钟 ${pomodoroWorkMin}+${pomodoroBreakMin} 分，专注结束自动记录`;
+  }
+}
+
+function clearTimerTick() {
+  timerRunning = false;
+  if (timerTick) clearInterval(timerTick);
+  timerTick = null;
+}
+
+function setTimerMode(mode) {
+  if (mode === timerMode) return;
+  if (timerRunning || timerSeconds > 0) {
+    if (!confirm("切换模式会重置当前计时")) return;
+    clearTimerTick();
+    timerSeconds = 0;
+    pomodoroPhase = "idle";
+    pomodoroPhaseTotal = 0;
+  }
+  timerMode = mode;
+  localStorage.setItem(TIMER_MODE_KEY, mode);
+  document.querySelectorAll(".mode-chip").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+  const hint = document.getElementById("timerModeHint");
+  if (hint) {
+    hint.textContent =
+      mode === "pomodoro"
+        ? `番茄钟 ${pomodoroWorkMin}+${pomodoroBreakMin} 分，专注结束自动记录`
+        : "正计时，结束手动记录";
+  }
+  setTimerUI();
+}
+
+function pomodoroElapsedWorkSeconds() {
+  if (pomodoroPhase !== "work" || !pomodoroPhaseTotal) return 0;
+  return Math.max(0, pomodoroPhaseTotal - timerSeconds);
+}
+
 function formatTimer(sec) {
   const h = String(Math.floor(sec / 3600)).padStart(2, "0");
   const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
@@ -832,54 +1105,174 @@ function formatTimer(sec) {
   return `${h}:${m}:${s}`;
 }
 
+function onPomodoroPhaseEnd() {
+  if (pomodoroPhase === "work") {
+    addLog({
+      date: todayStr(),
+      subject: timerSubject,
+      subtask: getTimerSubtaskValue(),
+      minutes: pomodoroWorkMin,
+      note: "番茄钟",
+      source: "pomodoro",
+    });
+    celebratePomodoro("专注完成 +1 番茄");
+    pomodoroPhase = "break";
+    pomodoroPhaseTotal = pomodoroBreakMin * 60;
+    timerSeconds = pomodoroPhaseTotal;
+    setTimerUI();
+    return;
+  }
+  if (pomodoroPhase === "break") {
+    celebratePomodoro("休息结束，可以下一轮了");
+    pomodoroPhase = "idle";
+    timerSeconds = 0;
+    pomodoroPhaseTotal = 0;
+    clearTimerTick();
+    setTimerUI();
+  }
+}
+
 function setTimerUI() {
   document.getElementById("timerDisplay").textContent = formatTimer(timerSeconds);
+
+  const canStop =
+    timerMode === "normal"
+      ? timerSeconds > 0 || timerRunning
+      : pomodoroPhase === "work" || timerRunning;
+
   document.getElementById("timerStart").disabled = timerRunning;
-  document.getElementById("timerPause").disabled = !timerRunning && timerSeconds === 0;
-  document.getElementById("timerStop").disabled = timerSeconds === 0 && !timerRunning;
+  document.getElementById("timerPause").disabled =
+    !timerRunning && (timerMode === "normal" ? timerSeconds === 0 : pomodoroPhase === "idle");
+  document.getElementById("timerStop").disabled = !canStop;
   document.getElementById("timerPause").textContent = timerRunning ? "暂停" : "继续";
+
+  const ring = document.getElementById("timerRing");
+  const card = document.querySelector(".timer-card");
+  if (card) {
+    card.classList.toggle("timer-running", timerRunning);
+    card.classList.toggle("pomodoro-active", timerMode === "pomodoro" && pomodoroPhase === "work");
+    card.classList.toggle("pomodoro-break", pomodoroPhase === "break");
+  }
+
+  let ringPct = 0;
+  if (timerMode === "pomodoro" && pomodoroPhaseTotal > 0 && pomodoroPhase !== "idle") {
+    const elapsed = pomodoroPhaseTotal - timerSeconds;
+    ringPct = Math.round((elapsed / pomodoroPhaseTotal) * 100);
+    ring?.classList.toggle("ring-break", pomodoroPhase === "break");
+  } else if (timerMode === "normal" && timerRunning) {
+    ringPct = Math.min(100, Math.round(((timerSeconds % 3600) / 3600) * 100));
+    ring?.classList.remove("ring-break");
+  } else {
+    ring?.classList.remove("ring-break");
+  }
+  if (ring) ring.style.setProperty("--ring-pct", `${ringPct}%`);
+
+  const badge = document.getElementById("pomodoroBadge");
+  if (badge && timerMode === "pomodoro" && timerRunning) {
+    badge.hidden = false;
+    badge.textContent = pomodoroPhase === "break" ? "休息中" : "专注中";
+  }
 }
 
 function startTimer() {
   if (timerRunning) return;
-  timerRunning = true;
   timerSubject = document.getElementById("timerSubject").value;
   setTimerSubject(timerSubject);
+
+  if (timerMode === "pomodoro" && pomodoroPhase === "idle") {
+    pomodoroPhase = "work";
+    pomodoroPhaseTotal = pomodoroWorkMin * 60;
+    timerSeconds = pomodoroPhaseTotal;
+  }
+
+  timerRunning = true;
   timerTick = setInterval(() => {
-    timerSeconds += 1;
+    if (timerMode === "pomodoro") {
+      timerSeconds -= 1;
+      if (timerSeconds <= 0) onPomodoroPhaseEnd();
+    } else {
+      timerSeconds += 1;
+    }
     setTimerUI();
   }, 1000);
   setTimerUI();
 }
 
 function pauseTimer() {
-  if (!timerRunning && timerSeconds > 0) {
+  if (!timerRunning && timerSeconds > 0 && pomodoroPhase !== "idle") {
+    startTimer();
+    return;
+  }
+  if (!timerRunning && timerMode === "normal" && timerSeconds > 0) {
     startTimer();
     return;
   }
   if (!timerRunning) return;
-  timerRunning = false;
-  clearInterval(timerTick);
-  timerTick = null;
+  clearTimerTick();
   setTimerUI();
 }
 
 function stopTimer() {
-  timerRunning = false;
-  clearInterval(timerTick);
-  timerTick = null;
-  if (timerSeconds >= 30) {
-    addLog({
-      date: todayStr(),
-      subject: timerSubject,
-      subtask: getTimerSubtaskValue(),
-      minutes: Math.max(1, Math.round(timerSeconds / 60)),
-      note: "",
-      source: "timer",
-    });
+  clearTimerTick();
+
+  if (timerMode === "pomodoro" && pomodoroPhase === "work") {
+    const elapsed = pomodoroElapsedWorkSeconds();
+    if (elapsed >= 30) {
+      addLog({
+        date: todayStr(),
+        subject: timerSubject,
+        subtask: getTimerSubtaskValue(),
+        minutes: Math.max(1, Math.round(elapsed / 60)),
+        note: "番茄钟（提前结束）",
+        source: "pomodoro",
+      });
+    }
+    pomodoroPhase = "idle";
+    pomodoroPhaseTotal = 0;
+    timerSeconds = 0;
+  } else if (timerMode === "normal") {
+    if (timerSeconds >= 30) {
+      addLog({
+        date: todayStr(),
+        subject: timerSubject,
+        subtask: getTimerSubtaskValue(),
+        minutes: Math.max(1, Math.round(timerSeconds / 60)),
+        note: "",
+        source: "timer",
+      });
+    }
+    timerSeconds = 0;
+  } else {
+    pomodoroPhase = "idle";
+    pomodoroPhaseTotal = 0;
+    timerSeconds = 0;
   }
-  timerSeconds = 0;
+
+  const badge = document.getElementById("pomodoroBadge");
+  if (badge) badge.hidden = true;
   setTimerUI();
+}
+
+function initTimerMode() {
+  document.querySelectorAll(".mode-chip").forEach((btn) => {
+    btn.addEventListener("click", () => setTimerMode(btn.dataset.mode));
+  });
+  setTimerMode(timerMode);
+}
+
+function initPomodoroForm() {
+  loadPomodoroSettings();
+  const workInput = document.getElementById("pomodoroWorkMin");
+  const breakInput = document.getElementById("pomodoroBreakMin");
+  if (workInput) workInput.value = String(pomodoroWorkMin);
+  if (breakInput) breakInput.value = String(pomodoroBreakMin);
+
+  document.getElementById("pomodoroForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    savePomodoroSettings(Number(workInput.value), Number(breakInput.value));
+    if (workInput) workInput.value = String(pomodoroWorkMin);
+    if (breakInput) breakInput.value = String(pomodoroBreakMin);
+  });
 }
 
 function initManualForm() {
@@ -983,6 +1376,8 @@ function initTools() {
     renderAll();
   });
 
+  document.getElementById("exportIcsBtn").addEventListener("click", exportICS);
+
   document.getElementById("exportBtn").addEventListener("click", () => {
     const payload = {
       version: 3,
@@ -990,6 +1385,9 @@ function initTools() {
       customCategories,
       subtasksLibrary,
       dailyGoalHours: dailyGoalMinutes / 60,
+      pomodoroWorkMin,
+      pomodoroBreakMin,
+      timerMode,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
@@ -1021,6 +1419,9 @@ function initTools() {
           if (data.dailyGoalHours && Number(data.dailyGoalHours) >= 1) {
             saveDailyGoal(Number(data.dailyGoalHours));
           }
+          if (data.pomodoroWorkMin) savePomodoroSettings(Number(data.pomodoroWorkMin), pomodoroBreakMin);
+          if (data.pomodoroBreakMin) savePomodoroSettings(pomodoroWorkMin, Number(data.pomodoroBreakMin));
+          if (data.timerMode === "pomodoro" || data.timerMode === "normal") setTimerMode(data.timerMode);
         } else {
           throw new Error("invalid");
         }
@@ -1043,8 +1444,36 @@ function initTools() {
   });
 }
 
+function applyTheme(theme) {
+  const isDark = theme === "dark";
+  document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+  localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = isDark ? "#1c1917" : "#0d6e6e";
+  const btn = document.getElementById("themeToggle");
+  if (btn) {
+    btn.textContent = isDark ? "☀️" : "🌙";
+    btn.setAttribute("aria-label", isDark ? "切换浅色模式" : "切换深色模式");
+  }
+}
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = saved === "dark" || saved === "light" ? saved : prefersDark ? "dark" : "light";
+  applyTheme(theme);
+  const btn = document.getElementById("themeToggle");
+  if (btn) {
+    btn.addEventListener("click", () => {
+      const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      applyTheme(next);
+    });
+  }
+}
+
 loadLogs();
 loadDailyGoal();
+initTheme();
 fillSubjectSelects();
 fillPresetSubjectSelect();
 renderTimerChips();
@@ -1052,12 +1481,15 @@ renderCustomList();
 renderSubtaskPresetList();
 updateSubtaskDatalists();
 initPieRange();
+initCalendar();
 initMobileNav();
 initManualForm();
 initSleepForm();
 initCustomForm();
 initSubtaskPresetForm();
 initTimerSubtaskInput();
+initPomodoroForm();
+initTimerMode();
 initTimer();
 initDailyGoalForm();
 initTools();
