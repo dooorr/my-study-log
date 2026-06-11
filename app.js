@@ -23,6 +23,61 @@ const PIE_COLORS = {
   其他: "#a8a29e",
 };
 
+const SUBJECT_EMOJI = {
+  数分: "📐",
+  高代: "🔢",
+  英语: "📖",
+  政治: "📰",
+  睡觉: "😴",
+  玩手机: "📱",
+};
+
+const ENCOURAGE = {
+  morning: [
+    "☀️ 早上好，先开一数分吧",
+    "🌅 一日之计在于晨",
+    "📐 数分一道题，手感就来了",
+  ],
+  afternoon: [
+    "📚 下午适合啃高代",
+    "💪 午睡醒了，继续冲",
+    "🎯 再专注一小时",
+  ],
+  evening: [
+    "🌙 晚上复盘黄金时间",
+    "✨ 今天最后再收一点",
+    "📖 睡前记几个单词也好",
+  ],
+  night: [
+    "😴 别熬太晚，明天再战",
+    "🌃 该收工了，休息也是备考",
+  ],
+  goalNear: [
+    "🔥 就差一点，冲完收工",
+    "⚡ 临门一脚，稳住",
+  ],
+  goalDone: [
+    "🎉 今日目标达成！",
+    "🏆 收工！明天继续数分高代",
+    "✨ 你今天很卖力",
+  ],
+  streak: [
+    "🔥 连续打卡，势头正好",
+    "📈 别断档，习惯在养成",
+  ],
+  empty: [
+    "🌱 点「开始」开启今天第一笔",
+    "⏱ 还没动？先计时 25 分钟",
+    "📐 数分 4.2 在等你",
+  ],
+  afterLog: [
+    "✅ 记下了，继续保持",
+    "👍 又完成一段，不错",
+    "💪 专注的一小步",
+    "🎯 进度 +1",
+  ],
+};
+
 let pieRangeDays = 30;
 /** @type {number} 每日学习目标（分钟） */
 let dailyGoalMinutes = DEFAULT_DAILY_GOAL_HOURS * 60;
@@ -130,6 +185,61 @@ function formatEntryTitle(subject, subtask) {
   return st ? `${subject} · ${st}` : subject;
 }
 
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function subjectEmoji(label) {
+  if (SUBJECT_EMOJI[label]) return SUBJECT_EMOJI[label];
+  if (/睡|眠/.test(label)) return "😴";
+  if (/手机|玩|刷/.test(label)) return "📱";
+  if (/运|跑|健身|锻炼/.test(label)) return "🏃";
+  if (/吃|饭|餐/.test(label)) return "🍱";
+  return "✨";
+}
+
+function formatEntryDisplay(subject, subtask) {
+  return `${subjectEmoji(subject)} ${formatEntryTitle(subject, subtask)}`;
+}
+
+function timeOfDayPool() {
+  const h = new Date().getHours();
+  if (h < 6) return ENCOURAGE.night;
+  if (h < 12) return ENCOURAGE.morning;
+  if (h < 18) return ENCOURAGE.afternoon;
+  if (h < 22) return ENCOURAGE.evening;
+  return ENCOURAGE.night;
+}
+
+function buildEncouragement() {
+  const today = todayStr();
+  const study = minutesOnDate(today, (l) => isStudyLabel(l.subject));
+  const goal = dailyGoalMinutes;
+  const remain = goal - study;
+  const streak = calcStreak();
+  const hasTodayLogs = logs.some((l) => l.date === today);
+
+  if (study >= goal) return pickRandom(ENCOURAGE.goalDone);
+  if (remain > 0 && remain <= 60) return pickRandom(ENCOURAGE.goalNear);
+  if (streak >= 3) return `${pickRandom(ENCOURAGE.streak)}（已连续 ${streak} 天）`;
+  if (!hasTodayLogs) return pickRandom(ENCOURAGE.empty);
+  return pickRandom(timeOfDayPool());
+}
+
+function renderEncouragement() {
+  const el = document.getElementById("encourageLine");
+  if (el) el.textContent = buildEncouragement();
+}
+
+function showToast(msg, ms = 2600) {
+  const toast = document.getElementById("toast");
+  if (!toast || !msg) return;
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove("show"), ms);
+}
+
 function rememberSubtask(subject, subtask) {
   const st = (subtask || "").trim().slice(0, 30);
   if (!st) return;
@@ -222,21 +332,33 @@ function renderDailyGoal() {
 
   const remainMin = goal - study;
   if (study >= goal) {
-    hint.textContent = "今日目标已达成";
+    hint.textContent = pickRandom([
+      "🎉 今日目标已达成！",
+      "🏆 达标收工，明天继续",
+      "✨ 今天任务完成啦",
+    ]);
     if (!goalWasComplete && banner) {
       goalWasComplete = true;
       banner.classList.add("goal-celebrate");
       setTimeout(() => banner.classList.remove("goal-celebrate"), 800);
       pulseElement("timerRingWrap");
+      showToast("🎉 今日学习目标达成！");
     }
   } else {
     goalWasComplete = false;
     if (remainMin >= 60) {
-      hint.textContent = `还差 ${formatHours(remainMin)}`;
+      const h = formatHours(remainMin);
+      hint.textContent =
+        remainMin <= 120
+          ? `🔥 还差 ${h}，冲一把`
+          : pct >= 50
+            ? `📚 还差 ${h}，过半了继续`
+            : `🌱 还差 ${h}，开计时走起`;
     } else if (remainMin > 0) {
-      hint.textContent = `还差 ${formatMinutes(remainMin)}`;
+      const m = formatMinutes(remainMin);
+      hint.textContent = remainMin <= 30 ? `⚡ 就差 ${m} 了！` : `🎯 还差 ${m}`;
     } else {
-      hint.textContent = "开始计时吧";
+      hint.textContent = "⏱ 开始计时吧";
     }
   }
 }
@@ -297,7 +419,7 @@ function getTimerSubtaskValue() {
 
 function updateTimerHint() {
   const st = getTimerSubtaskValue();
-  document.getElementById("timerHint").textContent = `当前：${formatEntryTitle(timerSubject, st)}`;
+  document.getElementById("timerHint").textContent = `当前：${formatEntryDisplay(timerSubject, st)}`;
 }
 
 function setTimerSubject(label) {
@@ -380,20 +502,21 @@ function chipHtml(c) {
     classes.push("custom");
     tag = "自定义";
   }
+  const emoji = subjectEmoji(c.label);
   return `<button type="button" class="${classes.join(" ")}" data-subject="${c.label}">
-    ${c.label}${tag ? `<span class="chip-tag">${tag}</span>` : ""}
+    ${emoji} ${c.label}${tag ? `<span class="chip-tag">${tag}</span>` : ""}
   </button>`;
 }
 
 function renderTimerChips() {
   const wrap = document.getElementById("timerChips");
   const parts = [
-    `<div class="chip-group"><span class="chip-group-label">学习</span><div class="chip-row">${STUDY_CATS.map(chipHtml).join("")}</div></div>`,
-    `<div class="chip-group"><span class="chip-group-label">生活</span><div class="chip-row">${LIFE_CATS.map(chipHtml).join("")}</div></div>`,
+    `<div class="chip-group"><span class="chip-group-label">📖 学习</span><div class="chip-row">${STUDY_CATS.map(chipHtml).join("")}</div></div>`,
+    `<div class="chip-group"><span class="chip-group-label">🏠 生活</span><div class="chip-row">${LIFE_CATS.map(chipHtml).join("")}</div></div>`,
   ];
   if (customCategories.length) {
     parts.push(
-      `<div class="chip-group"><span class="chip-group-label">自定义</span><div class="chip-row">${customCategories.map((label) => chipHtml({ label, group: "custom" })).join("")}</div></div>`
+      `<div class="chip-group"><span class="chip-group-label">✨ 自定义</span><div class="chip-row">${customCategories.map((label) => chipHtml({ label, group: "custom" })).join("")}</div></div>`
     );
   }
   wrap.innerHTML = parts.join("");
@@ -731,7 +854,7 @@ function renderSubtaskPresetList() {
   list.innerHTML = entries
     .map(
       ({ subject, st }) => `<li class="custom-cat-item">
-        <span>${escapeHtml(formatEntryTitle(subject, st))}</span>
+        <span>${escapeHtml(formatEntryDisplay(subject, st))}</span>
         <button type="button" class="btn ghost sm" data-rm-preset="${escapeHtml(subject)}|||${escapeHtml(st)}">删</button>
       </li>`
     )
@@ -781,6 +904,7 @@ function renderTodayList() {
   if (!items.length) {
     list.innerHTML = "";
     empty.style.display = "block";
+    empty.textContent = pickRandom(ENCOURAGE.empty);
     return;
   }
   empty.style.display = "none";
@@ -788,7 +912,7 @@ function renderTodayList() {
     .map(
       (l) => `<li class="log-item">
         <div>
-          <span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryTitle(l.subject, l.subtask))}</span>
+          <span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryDisplay(l.subject, l.subtask))}</span>
           <strong>${formatMinutes(l.minutes)}</strong>
           ${l.note ? `<span class="log-meta"> · ${escapeHtml(l.note)}</span>` : ""}
         </div>
@@ -841,7 +965,7 @@ function renderCalDayDetail(date) {
       .map(
         (l) => `<li class="log-item">
           <div>
-            <span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryTitle(l.subject, l.subtask))}</span>
+            <span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryDisplay(l.subject, l.subtask))}</span>
             <strong>${formatMinutes(l.minutes)}</strong>
           </div>
         </li>`
@@ -976,7 +1100,12 @@ function initCalendar() {
 }
 
 function renderAll() {
-  document.getElementById("streakDays").textContent = `${calcStreak()} 天`;
+  const streak = calcStreak();
+  const streakEl = document.getElementById("streakDays");
+  if (streakEl) {
+    streakEl.textContent = streak >= 2 ? `🔥 ${streak} 天` : `${streak} 天`;
+  }
+  renderEncouragement();
   renderWeekChart();
   renderPieCharts();
   renderCalendar();
@@ -1115,7 +1244,7 @@ function onPomodoroPhaseEnd() {
       note: "番茄钟",
       source: "pomodoro",
     });
-    celebratePomodoro("专注完成 +1 番茄");
+    celebratePomodoro("🍅 专注完成 +1 番茄");
     pomodoroPhase = "break";
     pomodoroPhaseTotal = pomodoroBreakMin * 60;
     timerSeconds = pomodoroPhaseTotal;
@@ -1123,7 +1252,7 @@ function onPomodoroPhaseEnd() {
     return;
   }
   if (pomodoroPhase === "break") {
-    celebratePomodoro("休息结束，可以下一轮了");
+    celebratePomodoro("☕ 休息结束，可以下一轮了");
     pomodoroPhase = "idle";
     timerSeconds = 0;
     pomodoroPhaseTotal = 0;
@@ -1170,7 +1299,7 @@ function setTimerUI() {
   const badge = document.getElementById("pomodoroBadge");
   if (badge && timerMode === "pomodoro" && timerRunning) {
     badge.hidden = false;
-    badge.textContent = pomodoroPhase === "break" ? "休息中" : "专注中";
+    badge.textContent = pomodoroPhase === "break" ? "☕ 休息中" : "🍅 专注中";
   }
 }
 
@@ -1214,6 +1343,7 @@ function pauseTimer() {
 
 function stopTimer() {
   clearTimerTick();
+  let logged = false;
 
   if (timerMode === "pomodoro" && pomodoroPhase === "work") {
     const elapsed = pomodoroElapsedWorkSeconds();
@@ -1226,6 +1356,7 @@ function stopTimer() {
         note: "番茄钟（提前结束）",
         source: "pomodoro",
       });
+      logged = true;
     }
     pomodoroPhase = "idle";
     pomodoroPhaseTotal = 0;
@@ -1240,6 +1371,7 @@ function stopTimer() {
         note: "",
         source: "timer",
       });
+      logged = true;
     }
     timerSeconds = 0;
   } else {
@@ -1251,6 +1383,7 @@ function stopTimer() {
   const badge = document.getElementById("pomodoroBadge");
   if (badge) badge.hidden = true;
   setTimerUI();
+  if (logged) showToast(pickRandom(ENCOURAGE.afterLog));
 }
 
 function initTimerMode() {

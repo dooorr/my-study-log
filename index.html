@@ -21,18 +21,19 @@
   <div class="app">
     <header class="header">
       <div class="header-main">
-        <h1>学习打卡</h1>
+        <h1>📚 学习打卡</h1>
         <p class="subtitle">学习 · 睡觉 · 玩手机 · 可自定义</p>
+        <p class="encourage-line" id="encourageLine" aria-live="polite"></p>
       </div>
       <div class="header-right">
         <button type="button" class="theme-toggle" id="themeToggle" aria-label="切换深色模式">🌙</button>
         <div class="header-stats">
           <div class="stat-pill">
-            <span class="label">今日学习</span>
+            <span class="label">📖 今日学习</span>
             <span class="value" id="todayTotal">0h</span>
           </div>
           <div class="stat-pill accent">
-            <span class="label">连续</span>
+            <span class="label">🔥 连续</span>
             <span class="value" id="streakDays">0 天</span>
           </div>
         </div>
@@ -41,7 +42,7 @@
 
     <section class="daily-goal-banner card" id="dailyGoalBanner" aria-label="今日学习目标">
       <div class="goal-head">
-        <span class="goal-title">今日学习目标</span>
+        <span class="goal-title">🎯 今日学习目标</span>
         <span class="goal-nums" id="goalNums">0h / 8h</span>
       </div>
       <div class="goal-track">
@@ -52,7 +53,7 @@
 
     <main class="grid" id="mainGrid">
       <section class="card timer-card" data-panel="timer">
-        <h2>专注计时</h2>
+        <h2>⏱ 专注计时</h2>
         <div class="timer-mode-row">
           <button type="button" class="chip mode-chip active" data-mode="normal">普通计时</button>
           <button type="button" class="chip mode-chip" data-mode="pomodoro">番茄钟</button>
@@ -84,7 +85,7 @@
       </section>
 
       <section class="card" data-panel="today">
-        <h2>记睡眠</h2>
+        <h2>😴 记睡眠</h2>
         <form id="sleepForm" class="form sleep-form">
           <label>
             起床日期
@@ -103,7 +104,7 @@
       </section>
 
       <section class="card" data-panel="today">
-        <h2>手动补录</h2>
+        <h2>✏️ 手动补录</h2>
         <form id="manualForm" class="form">
           <label>
             日期
@@ -132,7 +133,7 @@
 
       <section class="card span-2" data-panel="stats">
         <div class="card-head">
-          <h2>学习日历</h2>
+          <h2>📅 学习日历</h2>
           <div class="cal-nav">
             <button type="button" class="btn ghost sm" id="calPrev" aria-label="上个月">‹</button>
             <span class="cal-title" id="calTitle">2026年6月</span>
@@ -149,7 +150,7 @@
 
       <section class="card span-2" data-panel="stats">
         <div class="card-head">
-          <h2>近 7 天学习</h2>
+          <h2>📊 近 7 天学习</h2>
           <span class="muted" id="weekTotal">本周学习 0h</span>
         </div>
         <div class="chart" id="weekChart"></div>
@@ -157,15 +158,15 @@
 
       <section class="card span-2" data-panel="today">
         <div class="card-head">
-          <h2>今日概览</h2>
+          <h2>📋 今日概览</h2>
         </div>
         <div class="today-mini-stats">
-          <div class="mini-stat"><span class="label">学习</span><strong id="todayStudy">0h</strong></div>
-          <div class="mini-stat sleep"><span class="label">睡觉</span><strong id="todaySleep">—</strong></div>
-          <div class="mini-stat phone"><span class="label">玩手机</span><strong id="todayPhone">—</strong></div>
+          <div class="mini-stat"><span class="label">📖 学习</span><strong id="todayStudy">0h</strong></div>
+          <div class="mini-stat sleep"><span class="label">😴 睡觉</span><strong id="todaySleep">—</strong></div>
+          <div class="mini-stat phone"><span class="label">📱 玩手机</span><strong id="todayPhone">—</strong></div>
         </div>
         <div class="card-head" style="margin-top:1rem">
-          <h2>今日记录</h2>
+          <h2>📝 今日记录</h2>
           <button type="button" class="btn ghost sm" id="clearToday">清空今日</button>
         </div>
         <ul class="log-list" id="todayList"></ul>
@@ -174,7 +175,7 @@
 
       <section class="card span-2" data-panel="stats">
         <div class="card-head">
-          <h2>时间占比</h2>
+          <h2>🥧 时间占比</h2>
           <div class="range-chips" id="pieRangeChips">
             <button type="button" class="chip range-chip" data-range="7">7天</button>
             <button type="button" class="chip range-chip active" data-range="30">30天</button>
@@ -185,21 +186,21 @@
 
       <section class="card span-2" data-panel="stats">
         <div class="card-head">
-          <h2>近 30 天分布</h2>
+          <h2>📈 近 30 天分布</h2>
         </div>
         <div class="subject-bars" id="subjectBars"></div>
       </section>
 
       <section class="card span-2" data-panel="stats">
         <div class="card-head">
-          <h2>子任务统计（近 30 天学习）</h2>
+          <h2>📌 子任务统计（近 30 天学习）</h2>
         </div>
         <p class="focus-note">有子任务的记录会显示为「数分 · 4.2」这种格式。</p>
         <div class="subject-bars" id="subtaskBars"></div>
       </section>
 
       <section class="card span-2 tools" data-panel="more">
-        <h2>添加到主屏幕</h2>
+        <h2>📲 添加到主屏幕</h2>
         <p class="muted block">像 App 一样从桌面打开。选项在<strong>浏览器</strong>里，本页没有按钮。</p>
         <div class="home-screen-steps">
           <p><strong>iPhone（必须用 Safari）</strong></p>
@@ -217,7 +218,7 @@
           </ol>
         </div>
 
-        <h2 style="margin-top:1.25rem">每日学习目标</h2>
+        <h2 style="margin-top:1.25rem">🎯 每日学习目标</h2>
         <p class="muted block">只统计「学习」类科目（数分、高代、英语、政治等），不含睡觉和玩手机。</p>
         <form id="dailyGoalForm" class="goal-form">
           <label>
@@ -227,7 +228,7 @@
           <button type="submit" class="btn primary">保存目标</button>
         </form>
 
-        <h2 style="margin-top:1.25rem">番茄钟设置</h2>
+        <h2 style="margin-top:1.25rem">🍅 番茄钟设置</h2>
         <p class="muted block">专注结束自动记入学习时长；休息不计入。默认 25 + 5 分钟。</p>
         <form id="pomodoroForm" class="form pomodoro-form">
           <label>
@@ -241,7 +242,7 @@
           <button type="submit" class="btn primary full">保存</button>
         </form>
 
-        <h2 style="margin-top:1.25rem">自定义类别</h2>
+        <h2 style="margin-top:1.25rem">🏷 自定义类别</h2>
         <p class="muted block">例如：运动、吃饭、通勤。添加后可计时或手动记。</p>
         <form id="customCatForm" class="custom-add-row">
           <input type="text" id="customCatName" placeholder="输入名称，最多 12 字" maxlength="12" required />
@@ -249,7 +250,7 @@
         </form>
         <ul class="custom-cat-list" id="customCatList"></ul>
 
-        <h2 style="margin-top:1.25rem">子任务预设</h2>
+        <h2 style="margin-top:1.25rem">📌 子任务预设</h2>
         <p class="muted block">给科目加常用子任务，计时时可一键点选。例如数分 → 4.2</p>
         <form id="subtaskPresetForm" class="form subtask-preset-form">
           <label>
@@ -264,7 +265,7 @@
         </form>
         <ul class="custom-cat-list" id="subtaskPresetList"></ul>
 
-        <h2 style="margin-top:1.25rem">数据备份</h2>
+        <h2 style="margin-top:1.25rem">💾 数据备份</h2>
         <p class="muted block">数据存在本机浏览器。换设备前请导出。</p>
         <div class="btn-row">
           <button type="button" class="btn" id="exportBtn">导出 JSON</button>
@@ -297,6 +298,7 @@
       </button>
     </nav>
   </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
 </html>
