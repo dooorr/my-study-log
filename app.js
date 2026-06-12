@@ -2757,36 +2757,69 @@ function initPomodoroForm() {
   });
 }
 
+function calcTimeRangeMinutes(date, startTime, endTime) {
+  if (!startTime || !endTime) return null;
+  const start = new Date(`${date}T${startTime}`);
+  let end = new Date(`${date}T${endTime}`);
+  if (end <= start) end.setDate(end.getDate() + 1);
+  const minutes = Math.round((end - start) / 60000);
+  if (minutes < 1 || minutes > 720) return null;
+  return { start, end, minutes };
+}
+
+function updateManualTimeHint() {
+  const hint = document.getElementById("manualTimeHint");
+  if (!hint) return;
+  const date = document.getElementById("manualDate")?.value;
+  const startTime = document.getElementById("manualStartTime")?.value;
+  const endTime = document.getElementById("manualEndTime")?.value;
+  if (!date || !startTime || !endTime) {
+    hint.textContent = "跨夜时结束早于开始会自动算到次日";
+    return;
+  }
+  const range = calcTimeRangeMinutes(date, startTime, endTime);
+  hint.textContent = range
+    ? `约 ${formatMinutes(range.minutes)}，会出现在时间轴`
+    : "时间范围不对，请检查开始和结束";
+}
+
 function initManualForm() {
   document.getElementById("manualDate").value = todayStr();
   document.getElementById("manualSubject").addEventListener("change", updateSubtaskDatalists);
+  for (const id of ["manualDate", "manualStartTime", "manualEndTime"]) {
+    document.getElementById(id)?.addEventListener("input", updateManualTimeHint);
+    document.getElementById(id)?.addEventListener("change", updateManualTimeHint);
+  }
   document.getElementById("manualForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const date = document.getElementById("manualDate").value;
-    const minutes = Number(document.getElementById("manualMinutes").value);
     const startTime = document.getElementById("manualStartTime").value;
-    let startAt = "";
-    let endAt = "";
-    if (startTime) {
-      const start = new Date(`${date}T${startTime}`);
-      const end = new Date(start.getTime() + minutes * 60000);
-      startAt = start.toISOString();
-      endAt = end.toISOString();
+    const endTime = document.getElementById("manualEndTime").value;
+    if (!startTime || !endTime) {
+      alert("请填写开始和结束时间");
+      return;
+    }
+    const range = calcTimeRangeMinutes(date, startTime, endTime);
+    if (!range) {
+      alert("时间不对：结束须晚于开始，且单次不超过 12 小时");
+      return;
     }
     addLog({
       date,
       subject: document.getElementById("manualSubject").value,
       subtask: document.getElementById("manualSubtask").value.trim(),
-      minutes,
+      minutes: range.minutes,
       note: document.getElementById("manualNote").value.trim(),
       source: "manual",
-      startAt,
-      endAt,
+      startAt: range.start.toISOString(),
+      endAt: range.end.toISOString(),
     });
     document.getElementById("manualSubtask").value = "";
     document.getElementById("manualNote").value = "";
+    updateManualTimeHint();
     setTodayView("log");
   });
+  updateManualTimeHint();
 }
 
 function initSubtaskPresetForm() {

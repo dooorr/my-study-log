@@ -224,15 +224,15 @@
         <div class="hub-pane today-view mobile-form-pane" data-today-view="add">
           <h2>😴 记睡眠</h2>
           <form id="sleepForm" class="form sleep-form">
-            <label>
+            <label class="full">
               起床日期
               <input type="date" id="sleepWakeDate" required />
             </label>
-            <label>
+            <label class="full">
               入睡时间
               <input type="time" id="sleepBedTime" value="23:30" required />
             </label>
-            <label>
+            <label class="full">
               起床时间
               <input type="time" id="sleepWakeTime" value="07:00" required />
             </label>
@@ -254,13 +254,14 @@
               <select id="manualSubject" required></select>
             </label>
             <label>
-              开始时间（可选，填了才进时间轴）
-              <input type="time" id="manualStartTime" />
+              开始时间
+              <input type="time" id="manualStartTime" required />
             </label>
             <label>
-              时长（分钟）
-              <input type="number" id="manualMinutes" min="1" max="720" value="60" required />
+              结束时间
+              <input type="time" id="manualEndTime" required />
             </label>
+            <p class="manual-time-hint muted full" id="manualTimeHint">跨夜时结束早于开始会自动算到次日</p>
             <label class="full">
               子任务（可选）
               <input type="text" id="manualSubtask" placeholder="例如：4.2、线代习题 2-3" maxlength="30" list="manualSubtaskList" />

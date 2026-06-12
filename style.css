@@ -2415,9 +2415,19 @@ input[type="text"] {
   border: none;
 }
 
+.sleep-form {
+  grid-template-columns: 1fr;
+}
+
+.manual-time-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .sleep-form .btn.full,
 .subtask-preset-form .btn.full {
-  grid-column: span 2;
+  grid-column: span 1;
 }
 
 .empty {
