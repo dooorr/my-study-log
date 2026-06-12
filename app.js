@@ -1724,20 +1724,77 @@ function timelineBlockClass(log) {
   return "tl-custom";
 }
 
-function assignTimelineLanes(items) {
-  const lanes = [];
-  for (const item of items) {
-    let lane = 0;
-    while (lane < lanes.length) {
-      const clash = lanes[lane].some((x) => item.start < x.end && item.end > x.start);
-      if (!clash) break;
-      lane += 1;
+function timelineSegmentsOverlap(a, b) {
+  return a.startMin < b.endMin && a.endMin > b.startMin;
+}
+
+/** 按时间交集划分的连通分量（仅真正重叠的事件在同一组） */
+function groupTimelineOverlapClusters(items) {
+  if (!items.length) return [];
+  const parent = items.map((_, i) => i);
+  const find = (i) => {
+    let r = i;
+    while (parent[r] !== r) {
+      parent[r] = parent[parent[r]];
+      r = parent[r];
     }
-    if (!lanes[lane]) lanes[lane] = [];
-    lanes[lane].push(item);
-    item.lane = lane;
+    return r;
+  };
+  const union = (i, j) => {
+    parent[find(i)] = find(j);
+  };
+  for (let i = 0; i < items.length; i += 1) {
+    for (let j = i + 1; j < items.length; j += 1) {
+      if (timelineSegmentsOverlap(items[i], items[j])) union(i, j);
+    }
   }
-  return lanes.length;
+  const map = new Map();
+  for (let i = 0; i < items.length; i += 1) {
+    const root = find(i);
+    if (!map.has(root)) map.set(root, []);
+    map.get(root).push(items[i]);
+  }
+  return [...map.values()];
+}
+
+/** 组内贪心分列；独立事件 colCount=1，重叠组内按列数对半/三等分 */
+function layoutTimelineOverlapClusters(items) {
+  let maxCols = 1;
+  for (const cluster of groupTimelineOverlapClusters(items)) {
+    if (cluster.length === 1) {
+      cluster[0].lane = 0;
+      cluster[0].colCount = 1;
+      continue;
+    }
+    const sorted = [...cluster].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+    const lanes = [];
+    for (const item of sorted) {
+      let lane = 0;
+      while (lane < lanes.length) {
+        const clash = lanes[lane].some((x) => timelineSegmentsOverlap(item, x));
+        if (!clash) break;
+        lane += 1;
+      }
+      if (!lanes[lane]) lanes[lane] = [];
+      lanes[lane].push(item);
+      item.lane = lane;
+    }
+    const colCount = lanes.length;
+    maxCols = Math.max(maxCols, colCount);
+    for (const item of cluster) item.colCount = colCount;
+  }
+  return maxCols;
+}
+
+function timelineBlockLayoutStyle(item, gapX) {
+  if (!item.colCount || item.colCount <= 1) {
+    return { leftPct: 0, widthPct: 100 };
+  }
+  const laneW = 100 / item.colCount;
+  return {
+    leftPct: item.lane * laneW + gapX / 2,
+    widthPct: Math.max(8, laneW - gapX),
+  };
 }
 
 function renderDayTimeline() {
@@ -1768,8 +1825,7 @@ function renderDayTimeline() {
   }
 
   timed.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
-  const laneCount = assignTimelineLanes(timed);
-  const laneCols = Math.max(1, laneCount);
+  const maxOverlapCols = layoutTimelineOverlapClusters(timed);
 
   let hoursHtml = "";
   for (let h = TIMELINE_DAY_START; h <= TIMELINE_DAY_END; h += 2) {
@@ -1785,9 +1841,8 @@ function renderDayTimeline() {
     const rawHeightPct = Math.max(2.2, ((item.endMin - item.startMin) / spanMin) * 100);
     const topPct = rawTopPct + gapY / 2;
     const heightPct = Math.max(1.8, rawHeightPct - gapY);
-    const laneW = 100 / laneCols;
-    const leftPct = item.lane * laneW + gapX / 2;
-    const widthPct = Math.max(7, laneW - gapX);
+    const { leftPct, widthPct } = timelineBlockLayoutStyle(item, gapX);
+    const overlapClass = item.colCount > 1 ? " tl-block--overlap" : " tl-block--solo";
     const sizeClass =
       heightPct < 3.2 ? " tl-block--tiny" : heightPct < 5.5 ? " tl-block--compact" : " tl-block--long";
     const splitClass =
@@ -1797,14 +1852,14 @@ function renderDayTimeline() {
     const title = extra ? `${titleBase} · ${extra}` : titleBase;
     const tip = item.log.note ? `${titleBase} — ${item.log.note}` : titleBase;
     const timeLabel = formatSegmentTimeRange(item.start, item.end, date);
-    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}${splitClass}" data-log-id="${escapeHtml(item.log.id)}" role="button" tabindex="0" aria-label="编辑 ${escapeHtml(title)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
+    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}${overlapClass}${splitClass}" data-log-id="${escapeHtml(item.log.id)}" role="button" tabindex="0" aria-label="编辑 ${escapeHtml(title)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
       <span class="tl-block-time">${timeLabel}${item.continuesNext ? " ↓" : item.isContinuation ? " ↑" : ""}</span>
       <span class="tl-block-label">${escapeHtml(title)}</span>
     </div>`;
   }
 
   lanesEl.innerHTML = `<div class="tl-hours">${hoursHtml}</div>
-    <div class="tl-track" data-lanes="${laneCols}">${blocksHtml}</div>`;
+    <div class="tl-track" data-max-overlap="${maxOverlapCols}">${blocksHtml}</div>`;
   bindTimelineBlocks();
 
   if (untimedEl) {
