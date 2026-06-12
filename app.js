@@ -260,6 +260,53 @@ function formatEntryDisplay(subject, subtask) {
   return `${subjectEmoji(subject)} ${formatEntryTitle(subject, subtask)}`;
 }
 
+function formatEntryParts(subject, subtask) {
+  return {
+    emoji: subjectEmoji(subject),
+    title: formatEntryTitle(subject, subtask),
+  };
+}
+
+function renderLogItemHtml(log, { draggable = true, showActions = true } = {}) {
+  const parts = formatEntryParts(log.subject, log.subtask);
+  const sourceLabel =
+    log.source === "timer"
+      ? "计时"
+      : log.source === "pomodoro"
+        ? "番茄"
+        : log.source === "sleep"
+          ? "睡眠"
+          : "手动";
+  const drag = draggable
+    ? `<span class="drag-handle" draggable="true" aria-label="拖动排序" title="拖动排序">⋮⋮</span>`
+    : "";
+  const note = log.note ? `<p class="log-item-note">${escapeHtml(log.note)}</p>` : "";
+  const foot = showActions
+    ? `<div class="log-item-foot">
+        <span class="log-meta log-source">${sourceLabel}</span>
+        <div class="log-item-actions">
+          <button type="button" class="btn ghost sm" data-note="${log.id}">备注</button>
+          <button type="button" class="btn ghost sm" data-del="${log.id}">删</button>
+        </div>
+      </div>`
+    : "";
+
+  return `<li class="log-item" data-id="${escapeHtml(log.id)}">
+    ${drag}
+    <div class="log-item-body">
+      <div class="log-item-top">
+        <span class="log-tag ${tagClassFor(log.subject)}">
+          <span class="log-tag-emoji" aria-hidden="true">${parts.emoji}</span>
+          <span class="log-tag-text">${escapeHtml(parts.title)}</span>
+        </span>
+        <strong class="log-duration">${formatMinutes(log.minutes)}</strong>
+      </div>
+      ${note}
+      ${foot}
+    </div>
+  </li>`;
+}
+
 function timeOfDayPool() {
   const h = new Date().getHours();
   if (h < 6) return ENCOURAGE.night;
@@ -1938,23 +1985,7 @@ function renderTodayList() {
     return;
   }
   empty.style.display = "none";
-  list.innerHTML = items
-    .map(
-      (l) => `<li class="log-item" data-id="${escapeHtml(l.id)}">
-        <span class="drag-handle" draggable="true" aria-label="拖动排序" title="拖动排序">⋮⋮</span>
-        <div class="log-item-main">
-          <span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryDisplay(l.subject, l.subtask))}</span>
-          <strong>${formatMinutes(l.minutes)}</strong>
-          ${l.note ? `<span class="log-meta"> · ${escapeHtml(l.note)}</span>` : ""}
-        </div>
-        <div class="log-item-actions">
-          <span class="log-meta">${l.source === "timer" ? "计时" : l.source === "pomodoro" ? "番茄" : l.source === "sleep" ? "睡眠" : "手动"}</span>
-          <button type="button" class="btn ghost sm" data-note="${l.id}">备注</button>
-          <button type="button" class="btn ghost sm" data-del="${l.id}">删</button>
-        </div>
-      </li>`
-    )
-    .join("");
+  list.innerHTML = items.map((l) => renderLogItemHtml(l)).join("");
 
   list.querySelectorAll("[data-del]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -2067,16 +2098,7 @@ function renderCalDayDetail(date) {
   }
 
   el.innerHTML = `<p class="cal-detail-head"><strong>${label}</strong> · 学习 ${formatHours(study)}</p>
-    <ul class="log-list cal-detail-list">${items
-      .map(
-        (l) => `<li class="log-item">
-          <div>
-            <span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryDisplay(l.subject, l.subtask))}</span>
-            <strong>${formatMinutes(l.minutes)}</strong>
-          </div>
-        </li>`
-      )
-      .join("")}</ul>`;
+    <ul class="log-list cal-detail-list">${items.map((l) => renderLogItemHtml(l, { draggable: false, showActions: false })).join("")}</ul>`;
 }
 
 function renderCalendar() {
