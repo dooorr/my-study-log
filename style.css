@@ -93,6 +93,7 @@
     #e8f4fa 100%
   );
   --shadow: 0 8px 28px rgba(30, 58, 82, 0.15);
+  --header-ink: #f4faff;
   color-scheme: light;
 }
 
@@ -133,6 +134,7 @@
     #e8f2e8 100%
   );
   --shadow: 0 8px 28px rgba(30, 61, 46, 0.14);
+  --header-ink: #f2faf4;
   color-scheme: light;
 }
 
@@ -237,6 +239,34 @@ h1 {
 
 .theme-toggle:hover {
   transform: scale(1.05);
+}
+
+.header-more-btn {
+  display: none;
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 999px;
+  width: 2.35rem;
+  height: 2.35rem;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  touch-action: manipulation;
+}
+
+[data-theme="ocean"] .header-compact h1,
+[data-theme="forest"] .header-compact h1 {
+  color: var(--header-ink);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.28);
+}
+
+[data-theme="ocean"] .header-compact .theme-toggle,
+[data-theme="ocean"] .header-compact .header-more-btn,
+[data-theme="forest"] .header-compact .theme-toggle,
+[data-theme="forest"] .header-compact .header-more-btn {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.55);
 }
 
 .stat-pill {
@@ -1631,7 +1661,39 @@ input[type="text"] {
 .day-timeline {
   position: relative;
   margin-top: 0.5rem;
-  --tl-day-height: 26rem;
+  --tl-day-height: 28rem;
+}
+
+.today-view[data-today-view="timeline"] .day-timeline {
+  --tl-day-height: min(62vh, 34rem);
+}
+
+.today-subnav {
+  display: none;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+  padding: 0.25rem;
+  background: var(--elevated);
+  border-radius: 12px;
+}
+
+.today-subnav-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.55rem 0.35rem;
+  border-radius: 9px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.today-subnav-btn.active {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .tl-hours {
@@ -1665,9 +1727,9 @@ input[type="text"] {
   background: repeating-linear-gradient(
     to bottom,
     transparent,
-    transparent calc(11.111% - 1px),
-    var(--line) calc(11.111% - 1px),
-    var(--line) 11.111%
+    transparent calc(8.333% - 1px),
+    var(--line) calc(8.333% - 1px),
+    var(--line) 8.333%
   );
   border-radius: 8px;
 }
@@ -2019,6 +2081,26 @@ input[type="text"] {
     display: none;
   }
 
+  .today-subnav {
+    display: flex;
+  }
+
+  .today-view {
+    display: none;
+  }
+
+  .today-view.active {
+    display: block;
+  }
+
+  .today-hub .card-head:first-child {
+    margin-top: 0;
+  }
+
+  .header-more-btn {
+    display: inline-block;
+  }
+
   .chip {
     padding: 0.5rem 1rem;
     font-size: 0.92rem;
@@ -2091,7 +2173,7 @@ input[type="text"] {
   }
 
   .bottom-nav .nav-btn {
-    font-size: 0.58rem;
+    font-size: 0.68rem;
   }
 
   .dash-nav {
@@ -2099,7 +2181,7 @@ input[type="text"] {
   }
 
   .day-timeline {
-    --tl-day-height: min(68vh, 34rem);
+    --tl-day-height: min(62vh, 34rem);
   }
 
   .tl-hours {
@@ -2144,6 +2226,16 @@ input[type="text"] {
 @media (min-width: 721px) {
   .bottom-nav {
     display: none !important;
+  }
+
+  .today-view {
+    display: block;
+  }
+
+  .today-view + .today-view {
+    margin-top: 1.35rem;
+    padding-top: 1.15rem;
+    border-top: 1px solid var(--line);
   }
 }
 

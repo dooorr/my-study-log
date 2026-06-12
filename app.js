@@ -52,8 +52,9 @@ const PIE_COLORS = {
   其他: "#a8a29e",
 };
 
-const TIMELINE_DAY_START = 6;
+const TIMELINE_DAY_START = 0;
 const TIMELINE_DAY_END = 24;
+const TODAY_VIEW_KEY = "kaoyan_today_view_v1";
 
 const SUBJECT_EMOJI = {
   数分: "📐",
@@ -394,17 +395,30 @@ function setDayLogOrder(date, ids) {
 
 function sortLogsForDate(date, items) {
   const order = dayLogOrder[date];
-  if (!order?.length) return items.sort((a, b) => b.id.localeCompare(a.id));
-  const map = new Map(items.map((l) => [l.id, l]));
-  const sorted = [];
-  for (const id of order) {
-    if (map.has(id)) {
-      sorted.push(map.get(id));
-      map.delete(id);
+  if (order?.length) {
+    const map = new Map(items.map((l) => [l.id, l]));
+    const sorted = [];
+    for (const id of order) {
+      if (map.has(id)) {
+        sorted.push(map.get(id));
+        map.delete(id);
+      }
     }
+    for (const l of map.values()) sorted.push(l);
+    return sorted;
   }
-  for (const l of map.values()) sorted.push(l);
-  return sorted;
+  return [...items].sort((a, b) => {
+    const diff = logSortTime(b) - logSortTime(a);
+    if (diff !== 0) return diff;
+    return b.id.localeCompare(a.id);
+  });
+}
+
+function logSortTime(log) {
+  const range = getLogTimeRange(log);
+  if (range) return range.end.getTime();
+  const ts = parseInt(String(log.id).split("-")[0], 10);
+  return Number.isNaN(ts) ? 0 : ts;
 }
 
 function normalizeStudyPhase(raw) {
@@ -1183,7 +1197,11 @@ function initMobileNav() {
   const panels = document.querySelectorAll("[data-panel]");
 
   function applyTab(tab) {
-    const name = tab || localStorage.getItem(TAB_KEY) || "home";
+    let name = tab || localStorage.getItem(TAB_KEY) || "home";
+    if (name === "timeline") {
+      name = "today";
+      setTodayView("timeline", false);
+    }
     if (isMobileLayout()) {
       panels.forEach((panel) => {
         panel.classList.toggle("panel-active", panel.dataset.panel === name);
@@ -1192,13 +1210,15 @@ function initMobileNav() {
         btn.classList.toggle("active", btn.dataset.tab === name);
       });
       localStorage.setItem(TAB_KEY, name);
+      if (name === "today") renderDayTimeline();
     } else {
       panels.forEach((panel) => panel.classList.add("panel-active"));
     }
   }
 
-  function navigateToTab(tab, scrollId) {
+  function navigateToTab(tab, scrollId, todayView) {
     applyTab(tab);
+    if (todayView) setTodayView(todayView);
     if (scrollId) {
       setTimeout(() => {
         const el = document.getElementById(scrollId);
@@ -1211,12 +1231,35 @@ function initMobileNav() {
     btn.addEventListener("click", () => applyTab(btn.dataset.tab));
   });
 
+  document.getElementById("headerMoreBtn")?.addEventListener("click", () => applyTab("more"));
+
   document.querySelectorAll("[data-goto]").forEach((btn) => {
-    btn.addEventListener("click", () => navigateToTab(btn.dataset.goto, btn.dataset.scroll || ""));
+    btn.addEventListener("click", () =>
+      navigateToTab(btn.dataset.goto, btn.dataset.scroll || "", btn.dataset.todayView || "")
+    );
   });
 
   window.addEventListener("resize", () => applyTab(localStorage.getItem(TAB_KEY) || "home"));
   applyTab(localStorage.getItem(TAB_KEY) || "home");
+}
+
+function setTodayView(view, save = true) {
+  const name = view || "log";
+  document.querySelectorAll(".today-subnav-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.todayView === name);
+  });
+  document.querySelectorAll(".today-view").forEach((el) => {
+    el.classList.toggle("active", el.dataset.todayView === name);
+  });
+  if (save) localStorage.setItem(TODAY_VIEW_KEY, name);
+  if (name === "timeline") renderDayTimeline();
+}
+
+function initTodaySubnav() {
+  document.querySelectorAll(".today-subnav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setTodayView(btn.dataset.todayView));
+  });
+  setTodayView(localStorage.getItem(TODAY_VIEW_KEY) || "log", false);
 }
 
 function studyMinutesByDate() {
@@ -2482,6 +2525,7 @@ function initManualForm() {
     });
     document.getElementById("manualSubtask").value = "";
     document.getElementById("manualNote").value = "";
+    setTodayView("log");
   });
 }
 
@@ -2533,6 +2577,7 @@ function initSleepForm() {
     });
     const sleepNoteEl = document.getElementById("sleepNote");
     if (sleepNoteEl) sleepNoteEl.value = "";
+    setTodayView("log");
   });
 }
 
@@ -2824,6 +2869,7 @@ updateSubtaskDatalists();
 initPieRange();
 initCalendar();
 initTimeline();
+initTodaySubnav();
 initMobileNav();
 initManualForm();
 initSleepForm();

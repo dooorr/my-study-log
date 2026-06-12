@@ -32,6 +32,7 @@
       </div>
       <div class="header-right">
         <button type="button" class="theme-toggle" id="themeToggle" aria-label="切换深色模式">🌙</button>
+        <button type="button" class="header-more-btn" id="headerMoreBtn" aria-label="更多设置">⚙</button>
         <div class="header-stats desktop-only">
           <div class="stat-pill">
             <span class="label">📖 今日学习</span>
@@ -114,7 +115,7 @@
             <span class="dash-tile-title">专注计时</span>
             <span class="dash-tile-sub">番茄钟 · 正计时</span>
           </button>
-          <button type="button" class="dash-tile" data-goto="today">
+          <button type="button" class="dash-tile" data-goto="today" data-today-view="add">
             <span class="dash-tile-icon">📋</span>
             <span class="dash-tile-title">今日记录</span>
             <span class="dash-tile-sub">睡眠 · 补录</span>
@@ -124,7 +125,7 @@
             <span class="dash-tile-title">数据统计</span>
             <span class="dash-tile-sub">图表 · 日历</span>
           </button>
-          <button type="button" class="dash-tile" data-goto="timeline">
+          <button type="button" class="dash-tile" data-goto="today" data-today-view="timeline">
             <span class="dash-tile-icon">🕐</span>
             <span class="dash-tile-title">一日时间轴</span>
             <span class="dash-tile-sub">几点在干什么</span>
@@ -181,73 +182,97 @@
         </div>
       </section>
 
-      <section class="card" data-panel="today">
-        <h2>😴 记睡眠</h2>
-        <form id="sleepForm" class="form sleep-form">
-          <label>
-            起床日期
-            <input type="date" id="sleepWakeDate" required />
-          </label>
-          <label>
-            入睡时间
-            <input type="time" id="sleepBedTime" value="23:30" required />
-          </label>
-          <label>
-            起床时间
-            <input type="time" id="sleepWakeTime" value="07:00" required />
-          </label>
-          <label class="full">
-            备注（可选）
-            <input type="text" id="sleepNote" placeholder="例如：睡得不错" maxlength="80" />
-          </label>
-          <button type="submit" class="btn primary full">记录睡眠</button>
-        </form>
-      </section>
+      <section class="card span-2 today-hub" data-panel="today" id="todayHub">
+        <nav class="today-subnav" aria-label="今日分页">
+          <button type="button" class="today-subnav-btn active" data-today-view="log">记录</button>
+          <button type="button" class="today-subnav-btn" data-today-view="timeline">日程</button>
+          <button type="button" class="today-subnav-btn" data-today-view="add">记一笔</button>
+        </nav>
 
-      <section class="card" data-panel="today">
-        <h2>✏️ 手动补录</h2>
-        <form id="manualForm" class="form">
-          <label>
-            日期
-            <input type="date" id="manualDate" required />
-          </label>
-          <label>
-            类别
-            <select id="manualSubject" required></select>
-          </label>
-          <label>
-            开始时间（可选，填了才进时间轴）
-            <input type="time" id="manualStartTime" />
-          </label>
-          <label>
-            时长（分钟）
-            <input type="number" id="manualMinutes" min="1" max="720" value="60" required />
-          </label>
-          <label class="full">
-            子任务（可选）
-            <input type="text" id="manualSubtask" placeholder="例如：4.2、线代习题 2-3" maxlength="30" list="manualSubtaskList" />
-            <datalist id="manualSubtaskList"></datalist>
-          </label>
-          <label class="full">
-            备注（可选）
-            <input type="text" id="manualNote" placeholder="额外说明" maxlength="80" />
-          </label>
-          <button type="submit" class="btn primary full">添加记录</button>
-        </form>
-      </section>
-
-      <section class="card span-2" data-panel="timeline" id="timelineSection">
-        <div class="card-head">
-          <h2>🕐 一日时间轴</h2>
-          <div class="cal-nav">
-            <button type="button" class="btn ghost sm" id="timelinePrev" aria-label="前一天">‹</button>
-            <input type="date" class="timeline-date-input" id="timelineDate" aria-label="选择日期" />
-            <button type="button" class="btn ghost sm" id="timelineNext" aria-label="后一天">›</button>
+        <div class="today-view active" data-today-view="log">
+          <div class="card-head">
+            <h2>📋 今日概览</h2>
           </div>
+          <div class="today-mini-stats">
+            <div class="mini-stat"><span class="label">📖 学习</span><strong id="todayStudy">0h</strong></div>
+            <div class="mini-stat sleep"><span class="label">😴 睡觉</span><strong id="todaySleep">—</strong></div>
+            <div class="mini-stat phone"><span class="label">📱 玩手机</span><strong id="todayPhone">—</strong></div>
+          </div>
+          <div class="card-head" style="margin-top:1rem">
+            <h2>📝 今日记录</h2>
+            <button type="button" class="btn ghost sm" id="clearToday">清空今日</button>
+          </div>
+          <p class="muted block drag-hint">按结束时间从新到旧；早起记的睡眠在下方。拖 ⋮⋮ 可手动调序。</p>
+          <ul class="log-list" id="todayList"></ul>
+          <p class="empty" id="todayEmpty">今天还没有记录。</p>
         </div>
-        <p class="muted block">6:00–24:00 一天里各时段在做什么；计时结束会自动记录时间。</p>
-        <div class="day-timeline" id="timelineLanes"></div>
-        <div id="timelineUntimed"></div>
+
+        <div class="today-view" data-today-view="timeline" id="timelineSection">
+          <div class="card-head">
+            <h2>🕐 一日时间轴</h2>
+            <div class="cal-nav">
+              <button type="button" class="btn ghost sm" id="timelinePrev" aria-label="前一天">‹</button>
+              <input type="date" class="timeline-date-input" id="timelineDate" aria-label="选择日期" />
+              <button type="button" class="btn ghost sm" id="timelineNext" aria-label="后一天">›</button>
+            </div>
+          </div>
+          <p class="muted block">0:00–24:00 完整一天；计时结束会自动记录时段。</p>
+          <div class="day-timeline" id="timelineLanes"></div>
+          <div id="timelineUntimed"></div>
+        </div>
+
+        <div class="today-view" data-today-view="add">
+          <h2>😴 记睡眠</h2>
+          <form id="sleepForm" class="form sleep-form">
+            <label>
+              起床日期
+              <input type="date" id="sleepWakeDate" required />
+            </label>
+            <label>
+              入睡时间
+              <input type="time" id="sleepBedTime" value="23:30" required />
+            </label>
+            <label>
+              起床时间
+              <input type="time" id="sleepWakeTime" value="07:00" required />
+            </label>
+            <label class="full">
+              备注（可选）
+              <input type="text" id="sleepNote" placeholder="例如：睡得不错" maxlength="80" />
+            </label>
+            <button type="submit" class="btn primary full">记录睡眠</button>
+          </form>
+
+          <h2 style="margin-top:1.25rem">✏️ 手动补录</h2>
+          <form id="manualForm" class="form">
+            <label>
+              日期
+              <input type="date" id="manualDate" required />
+            </label>
+            <label>
+              类别
+              <select id="manualSubject" required></select>
+            </label>
+            <label>
+              开始时间（可选，填了才进时间轴）
+              <input type="time" id="manualStartTime" />
+            </label>
+            <label>
+              时长（分钟）
+              <input type="number" id="manualMinutes" min="1" max="720" value="60" required />
+            </label>
+            <label class="full">
+              子任务（可选）
+              <input type="text" id="manualSubtask" placeholder="例如：4.2、线代习题 2-3" maxlength="30" list="manualSubtaskList" />
+              <datalist id="manualSubtaskList"></datalist>
+            </label>
+            <label class="full">
+              备注（可选）
+              <input type="text" id="manualNote" placeholder="额外说明" maxlength="80" />
+            </label>
+            <button type="submit" class="btn primary full">添加记录</button>
+          </form>
+        </div>
       </section>
 
       <section class="card span-2" data-panel="stats" id="leaderboardSection">
@@ -300,24 +325,6 @@
           <span class="muted" id="weekTotal">本周学习 0h</span>
         </div>
         <div class="chart" id="weekChart"></div>
-      </section>
-
-      <section class="card span-2" data-panel="today">
-        <div class="card-head">
-          <h2>📋 今日概览</h2>
-        </div>
-        <div class="today-mini-stats">
-          <div class="mini-stat"><span class="label">📖 学习</span><strong id="todayStudy">0h</strong></div>
-          <div class="mini-stat sleep"><span class="label">😴 睡觉</span><strong id="todaySleep">—</strong></div>
-          <div class="mini-stat phone"><span class="label">📱 玩手机</span><strong id="todayPhone">—</strong></div>
-        </div>
-        <div class="card-head" style="margin-top:1rem">
-          <h2>📝 今日记录</h2>
-          <button type="button" class="btn ghost sm" id="clearToday">清空今日</button>
-        </div>
-        <p class="muted block drag-hint">拖左侧 ⋮⋮ 可调整顺序；拖 JSON 文件到页面可导入备份。</p>
-        <ul class="log-list" id="todayList"></ul>
-        <p class="empty" id="todayEmpty">今天还没有记录。</p>
       </section>
 
       <section class="card span-2" data-panel="stats">
@@ -490,17 +497,9 @@
         <span class="nav-icon" aria-hidden="true">📋</span>
         <span>今日</span>
       </button>
-      <button type="button" class="nav-btn" data-tab="timeline">
-        <span class="nav-icon" aria-hidden="true">🕐</span>
-        <span>日程</span>
-      </button>
       <button type="button" class="nav-btn" data-tab="stats">
         <span class="nav-icon" aria-hidden="true">📊</span>
         <span>统计</span>
-      </button>
-      <button type="button" class="nav-btn" data-tab="more">
-        <span class="nav-icon" aria-hidden="true">⚙</span>
-        <span>更多</span>
       </button>
     </nav>
   </div>
