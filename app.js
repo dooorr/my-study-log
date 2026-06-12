@@ -46,8 +46,14 @@ const PIE_COLORS = {
   学习: "#0d6e6e",
   睡觉: "#6366f1",
   玩手机: "#d97706",
+  吃饭: "#c9a87c",
+  取快递: "#8fa8b8",
+  打电话: "#b8a0b0",
   其他: "#a8a29e",
 };
+
+const TIMELINE_DAY_START = 6;
+const TIMELINE_DAY_END = 24;
 
 const SUBJECT_EMOJI = {
   数分: "📐",
@@ -56,6 +62,9 @@ const SUBJECT_EMOJI = {
   政治: "📰",
   睡觉: "😴",
   玩手机: "📱",
+  吃饭: "🍱",
+  取快递: "📦",
+  打电话: "📞",
 };
 
 const ENCOURAGE = {
@@ -118,6 +127,9 @@ const STUDY_CATS = [
 const LIFE_CATS = [
   { label: "睡觉", group: "life", lifeKind: "sleep" },
   { label: "玩手机", group: "life", lifeKind: "phone" },
+  { label: "吃饭", group: "life", lifeKind: "meal" },
+  { label: "取快递", group: "life", lifeKind: "errand" },
+  { label: "打电话", group: "life", lifeKind: "call" },
 ];
 
 const LEGACY_SUBJECT_MAP = {
@@ -162,6 +174,9 @@ let goalWasComplete = false;
 let calendarYear = new Date().getFullYear();
 let calendarMonth = new Date().getMonth();
 let selectedCalDate = "";
+let timelineViewDate = "";
+let timerStartedAt = 0;
+let pomodoroWorkStartAt = 0;
 
 function getBuiltinLabels() {
   return [...STUDY_CATS, ...LIFE_CATS].map((c) => c.label);
@@ -231,6 +246,8 @@ function subjectEmoji(label) {
   if (SUBJECT_EMOJI[label]) return SUBJECT_EMOJI[label];
   if (/睡|眠/.test(label)) return "😴";
   if (/手机|玩|刷/.test(label)) return "📱";
+  if (/快递|取件/.test(label)) return "📦";
+  if (/电话|通话/.test(label)) return "📞";
   if (/运|跑|健身|锻炼/.test(label)) return "🏃";
   if (/吃|饭|餐/.test(label)) return "🍱";
   return "✨";
@@ -311,6 +328,14 @@ function migrateLogs() {
       }
     }
     if (log.subtask) rememberSubtask(log.subject, log.subtask);
+    if (log.startAt === undefined) {
+      log.startAt = "";
+      migrated = true;
+    }
+    if (log.endAt === undefined) {
+      log.endAt = "";
+      migrated = true;
+    }
   }
   if (migrated) saveCustomCategories();
   return migrated;
@@ -956,6 +981,40 @@ function getTimerSubtaskValue() {
   return (document.getElementById("timerSubtask")?.value || "").trim();
 }
 
+function getTimerNoteValue() {
+  return (document.getElementById("timerNote")?.value || "").trim();
+}
+
+function clearTimerNote() {
+  const el = document.getElementById("timerNote");
+  if (el) el.value = "";
+}
+
+/** @param {string} fallback @param {string} [userNote] */
+function buildTimerNote(fallback, userNote) {
+  return userNote || fallback;
+}
+
+function logExtraNote(log) {
+  if (!log.note) return "";
+  if (log.subject === "睡觉") {
+    const parts = log.note.split("·");
+    return parts.length > 1 ? parts.slice(1).join("·").trim() : "";
+  }
+  return log.note;
+}
+
+function editLogNote(id) {
+  const log = logs.find((l) => l.id === id);
+  if (!log) return;
+  const cur = log.note || "";
+  const next = prompt("备注（留空则删除）", cur);
+  if (next === null) return;
+  log.note = next.trim().slice(0, 120);
+  saveLogs();
+  renderAll();
+}
+
 function updateTimerHint() {
   const st = getTimerSubtaskValue();
   document.getElementById("timerHint").textContent = `当前：${formatEntryDisplay(timerSubject, st)}`;
@@ -1036,7 +1095,14 @@ function chipHtml(c) {
     tag = c.primary ? "主攻" : "后期";
   } else if (c.group === "life") {
     classes.push("life");
-    tag = c.lifeKind === "sleep" ? "休息" : c.lifeKind === "phone" ? "记录" : "";
+    tag =
+      c.lifeKind === "sleep"
+        ? "休息"
+        : c.lifeKind === "phone"
+          ? "记录"
+          : c.lifeKind === "meal" || c.lifeKind === "errand" || c.lifeKind === "call"
+            ? "日常"
+            : "";
   } else {
     classes.push("custom");
     tag = "自定义";
@@ -1298,6 +1364,167 @@ function renderSelfLeaderboard() {
         <div class="record-pill"><span>今日排名</span><strong>${rankInfo ? (rankInfo.isRecord ? "第 1 🎉" : `第 ${rankInfo.rank} 名`) : "—"}</strong><small>共 ${rows.length} 个学习日</small></div>
       </div>`;
     }
+  }
+}
+
+function formatClockTime(d) {
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function getLogTimeRange(log) {
+  if (log.startAt && log.endAt) {
+    const start = new Date(log.startAt);
+    const end = new Date(log.endAt);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start) {
+      return { start, end };
+    }
+  }
+  if (log.subject === "睡觉" && log.note) {
+    const m = log.note.match(/(\d{2}:\d{2})\s*→\s*(\d{2}:\d{2})/);
+    if (m) {
+      const wake = new Date(`${log.date}T${m[2]}`);
+      let bed = new Date(`${log.date}T${m[1]}`);
+      if (bed >= wake) bed.setDate(bed.getDate() - 1);
+      if (wake > bed) return { start: bed, end: wake };
+    }
+  }
+  return null;
+}
+
+function timelineBlockClass(log) {
+  const meta = getCategoryMeta(log.subject);
+  if (meta?.group === "study") return meta.primary ? "tl-study" : "tl-study-alt";
+  if (meta?.group === "life") return `tl-life-${meta.lifeKind || "other"}`;
+  return "tl-custom";
+}
+
+function assignTimelineLanes(items) {
+  const lanes = [];
+  for (const item of items) {
+    let lane = 0;
+    while (lane < lanes.length) {
+      const clash = lanes[lane].some((x) => item.start < x.end && item.end > x.start);
+      if (!clash) break;
+      lane += 1;
+    }
+    if (!lanes[lane]) lanes[lane] = [];
+    lanes[lane].push(item);
+    item.lane = lane;
+  }
+  return lanes.length;
+}
+
+function renderDayTimeline() {
+  const lanesEl = document.getElementById("timelineLanes");
+  const untimedEl = document.getElementById("timelineUntimed");
+  const dateInput = document.getElementById("timelineDate");
+  if (!lanesEl) return;
+
+  const date = timelineViewDate || todayStr();
+  timelineViewDate = date;
+  if (dateInput) dateInput.value = date;
+
+  const dayStartMin = TIMELINE_DAY_START * 60;
+  const dayEndMin = TIMELINE_DAY_END * 60;
+  const spanMin = dayEndMin - dayStartMin;
+
+  const dayLogs = logs.filter((l) => l.date === date);
+  const timed = [];
+  const untimed = [];
+
+  for (const log of dayLogs) {
+    const range = getLogTimeRange(log);
+    if (!range) {
+      untimed.push(log);
+      continue;
+    }
+    let startMin = range.start.getHours() * 60 + range.start.getMinutes();
+    let endMin = range.end.getHours() * 60 + range.end.getMinutes();
+    if (endMin <= startMin && range.end > range.start) {
+      endMin += 24 * 60;
+    }
+    if (endMin <= dayStartMin || startMin >= dayEndMin) {
+      untimed.push(log);
+      continue;
+    }
+    startMin = Math.max(startMin, dayStartMin);
+    endMin = Math.min(endMin, dayEndMin);
+    if (endMin <= startMin) {
+      untimed.push(log);
+      continue;
+    }
+    timed.push({
+      log,
+      start: new Date(range.start),
+      end: new Date(range.end),
+      startMin,
+      endMin,
+    });
+  }
+
+  timed.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+  const laneCount = assignTimelineLanes(timed);
+  const laneHeight = 2.55;
+
+  let hoursHtml = "";
+  for (let h = TIMELINE_DAY_START; h <= TIMELINE_DAY_END; h += 2) {
+    const top = ((h * 60 - dayStartMin) / spanMin) * 100;
+    hoursHtml += `<span class="tl-hour" style="top:${top}%">${h}:00</span>`;
+  }
+
+  let blocksHtml = "";
+  for (const item of timed) {
+    const left = ((item.startMin - dayStartMin) / spanMin) * 100;
+    const width = Math.max(1.5, ((item.endMin - item.startMin) / spanMin) * 100);
+    const titleBase = formatEntryDisplay(item.log.subject, item.log.subtask);
+    const extra = logExtraNote(item.log);
+    const title = extra ? `${titleBase} · ${extra}` : titleBase;
+    const tip = item.log.note ? `${titleBase} — ${item.log.note}` : titleBase;
+    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}" style="left:${left}%;width:${width}%;top:calc(${item.lane} * ${laneHeight}rem);height:${laneHeight - 0.15}rem" title="${escapeHtml(tip)}">
+      <span class="tl-block-time">${formatClockTime(item.start)}–${formatClockTime(item.end)}</span>
+      <span class="tl-block-label">${escapeHtml(title)}</span>
+    </div>`;
+  }
+
+  lanesEl.innerHTML = `<div class="tl-hours">${hoursHtml}</div>
+    <div class="tl-track" style="min-height:${Math.max(1, laneCount) * laneHeight}rem">${blocksHtml}</div>`;
+
+  if (untimedEl) {
+    if (!untimed.length) {
+      untimedEl.innerHTML = "";
+    } else {
+      untimedEl.innerHTML = `<p class="muted block">未标注时段（补录时填开始时间可显示在时间轴上）</p>
+        <ul class="tl-untimed-list">${untimed
+          .map(
+            (l) =>
+              `<li><span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryDisplay(l.subject, l.subtask))}</span> · ${formatMinutes(l.minutes)}</li>`
+          )
+          .join("")}</ul>`;
+    }
+  }
+}
+
+function shiftTimelineDate(delta) {
+  const d = new Date(`${timelineViewDate || todayStr()}T12:00:00`);
+  d.setDate(d.getDate() + delta);
+  timelineViewDate = d.toISOString().slice(0, 10);
+  renderDayTimeline();
+}
+
+function initTimeline() {
+  timelineViewDate = todayStr();
+  const prev = document.getElementById("timelinePrev");
+  const next = document.getElementById("timelineNext");
+  const dateInput = document.getElementById("timelineDate");
+  if (prev) prev.addEventListener("click", () => shiftTimelineDate(-1));
+  if (next) next.addEventListener("click", () => shiftTimelineDate(1));
+  if (dateInput) {
+    dateInput.addEventListener("change", () => {
+      timelineViewDate = dateInput.value;
+      renderDayTimeline();
+    });
   }
 }
 
@@ -1620,6 +1847,7 @@ function renderTodayList() {
         </div>
         <div class="log-item-actions">
           <span class="log-meta">${l.source === "timer" ? "计时" : l.source === "pomodoro" ? "番茄" : l.source === "sleep" ? "睡眠" : "手动"}</span>
+          <button type="button" class="btn ghost sm" data-note="${l.id}">备注</button>
           <button type="button" class="btn ghost sm" data-del="${l.id}">删</button>
         </div>
       </li>`
@@ -1634,6 +1862,9 @@ function renderTodayList() {
       saveLogs();
       renderAll();
     });
+  });
+  list.querySelectorAll("[data-note]").forEach((btn) => {
+    btn.addEventListener("click", () => editLogNote(btn.getAttribute("data-note")));
   });
   initLogListDrag(list, today);
 }
@@ -1884,6 +2115,7 @@ function renderAll() {
   renderSubjectProgress();
   renderSelfLeaderboard();
   renderPhaseStats();
+  renderDayTimeline();
   renderWeekChart();
   renderPieCharts();
   renderCalendar();
@@ -1892,7 +2124,7 @@ function renderAll() {
   renderTodayList();
 }
 
-function addLog({ date, subject, subtask, minutes, note, source }) {
+function addLog({ date, subject, subtask, minutes, note, source, startAt, endAt }) {
   if (minutes < 1) return;
   const st = (subtask || "").trim().slice(0, 30);
   const id = uid();
@@ -1904,6 +2136,8 @@ function addLog({ date, subject, subtask, minutes, note, source }) {
     minutes: Math.round(minutes),
     note: note || "",
     source: source || "manual",
+    startAt: startAt || "",
+    endAt: endAt || "",
   });
   appendLogOrder(date, id);
   rememberSubtask(subject, st);
@@ -2016,14 +2250,22 @@ function formatTimer(sec) {
 
 function onPomodoroPhaseEnd() {
   if (pomodoroPhase === "work") {
+    const end = new Date();
+    const start = pomodoroWorkStartAt
+      ? new Date(pomodoroWorkStartAt)
+      : new Date(end.getTime() - pomodoroWorkMin * 60000);
+    const userNote = getTimerNoteValue();
     addLog({
       date: todayStr(),
       subject: timerSubject,
       subtask: getTimerSubtaskValue(),
       minutes: pomodoroWorkMin,
-      note: "番茄钟",
+      note: buildTimerNote("番茄钟", userNote),
       source: "pomodoro",
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
     });
+    clearTimerNote();
     celebratePomodoro("🍅 专注完成 +1 番茄");
     pomodoroPhase = "break";
     pomodoroPhaseTotal = pomodoroBreakMin * 60;
@@ -2092,8 +2334,10 @@ function startTimer() {
     pomodoroPhase = "work";
     pomodoroPhaseTotal = pomodoroWorkMin * 60;
     timerSeconds = pomodoroPhaseTotal;
+    pomodoroWorkStartAt = Date.now();
   }
 
+  timerStartedAt = Date.now();
   timerRunning = true;
   timerTick = setInterval(() => {
     if (timerMode === "pomodoro") {
@@ -2128,14 +2372,24 @@ function stopTimer() {
   if (timerMode === "pomodoro" && pomodoroPhase === "work") {
     const elapsed = pomodoroElapsedWorkSeconds();
     if (elapsed >= 30) {
+      const end = new Date();
+      const start = pomodoroWorkStartAt
+        ? new Date(pomodoroWorkStartAt)
+        : new Date(end.getTime() - elapsed * 1000);
+      const userNote = getTimerNoteValue();
       addLog({
         date: todayStr(),
         subject: timerSubject,
         subtask: getTimerSubtaskValue(),
         minutes: Math.max(1, Math.round(elapsed / 60)),
-        note: "番茄钟（提前结束）",
+        note: userNote
+          ? `${userNote}（提前结束）`
+          : "番茄钟（提前结束）",
         source: "pomodoro",
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
       });
+      clearTimerNote();
       logged = true;
     }
     pomodoroPhase = "idle";
@@ -2143,14 +2397,21 @@ function stopTimer() {
     timerSeconds = 0;
   } else if (timerMode === "normal") {
     if (timerSeconds >= 30) {
+      const end = new Date();
+      const start = timerStartedAt
+        ? new Date(timerStartedAt)
+        : new Date(end.getTime() - timerSeconds * 1000);
       addLog({
         date: todayStr(),
         subject: timerSubject,
         subtask: getTimerSubtaskValue(),
         minutes: Math.max(1, Math.round(timerSeconds / 60)),
-        note: "",
+        note: getTimerNoteValue(),
         source: "timer",
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
       });
+      clearTimerNote();
       logged = true;
     }
     timerSeconds = 0;
@@ -2162,6 +2423,8 @@ function stopTimer() {
 
   const badge = document.getElementById("pomodoroBadge");
   if (badge) badge.hidden = true;
+  timerStartedAt = 0;
+  pomodoroWorkStartAt = 0;
   setTimerUI();
   if (logged) showToast(pickRandom(ENCOURAGE.afterLog));
 }
@@ -2193,13 +2456,26 @@ function initManualForm() {
   document.getElementById("manualSubject").addEventListener("change", updateSubtaskDatalists);
   document.getElementById("manualForm").addEventListener("submit", (e) => {
     e.preventDefault();
+    const date = document.getElementById("manualDate").value;
+    const minutes = Number(document.getElementById("manualMinutes").value);
+    const startTime = document.getElementById("manualStartTime").value;
+    let startAt = "";
+    let endAt = "";
+    if (startTime) {
+      const start = new Date(`${date}T${startTime}`);
+      const end = new Date(start.getTime() + minutes * 60000);
+      startAt = start.toISOString();
+      endAt = end.toISOString();
+    }
     addLog({
-      date: document.getElementById("manualDate").value,
+      date,
       subject: document.getElementById("manualSubject").value,
       subtask: document.getElementById("manualSubtask").value.trim(),
-      minutes: Number(document.getElementById("manualMinutes").value),
+      minutes,
       note: document.getElementById("manualNote").value.trim(),
       source: "manual",
+      startAt,
+      endAt,
     });
     document.getElementById("manualSubtask").value = "";
     document.getElementById("manualNote").value = "";
@@ -2238,13 +2514,22 @@ function initSleepForm() {
       alert("时间不对，检查一下入睡和起床时间");
       return;
     }
+    const wakeDt = new Date(`${date}T${wake}`);
+    let bedDt = new Date(`${date}T${bed}`);
+    if (bedDt >= wakeDt) bedDt.setDate(bedDt.getDate() - 1);
+    const sleepExtra = document.getElementById("sleepNote")?.value.trim() || "";
+    const sleepNote = sleepExtra ? `${bed} → ${wake} · ${sleepExtra}` : `${bed} → ${wake}`;
     addLog({
       date,
       subject: "睡觉",
       minutes,
-      note: `${bed} → ${wake}`,
+      note: sleepNote,
       source: "sleep",
+      startAt: bedDt.toISOString(),
+      endAt: wakeDt.toISOString(),
     });
+    const sleepNoteEl = document.getElementById("sleepNote");
+    if (sleepNoteEl) sleepNoteEl.value = "";
   });
 }
 
@@ -2461,31 +2746,66 @@ function initFileDrop() {
   });
 }
 
+function normalizeTheme(theme) {
+  return theme === "morandi" ? "bi" : theme;
+}
+
 function applyTheme(theme) {
-  const isDark = theme === "dark";
-  document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
-  localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+  const t = normalizeTheme(theme);
+  const valid = ["light", "dark", "bi", "ocean", "forest"];
+  const active = valid.includes(t) ? t : "light";
+  document.documentElement.setAttribute("data-theme", active);
+  localStorage.setItem(THEME_KEY, active);
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = isDark ? "#1c1917" : "#0d6e6e";
+  if (meta) {
+    const colors = {
+      dark: "#1c1917",
+      bi: "#8b7e9b",
+      ocean: "#2a6894",
+      forest: "#2a7048",
+      light: "#0d6e6e",
+    };
+    meta.content = colors[active] || colors.light;
+  }
   const btn = document.getElementById("themeToggle");
   if (btn) {
-    btn.textContent = isDark ? "☀️" : "🌙";
-    btn.setAttribute("aria-label", isDark ? "切换浅色模式" : "切换深色模式");
+    const icons = { dark: "☀️", bi: "🎨", ocean: "🌊", forest: "🌲", light: "🌙" };
+    const labels = {
+      dark: "切换浅色模式",
+      bi: "切换默认主题",
+      ocean: "切换 Bi 主题",
+      forest: "切换海洋主题",
+      light: "切换主题",
+    };
+    btn.textContent = icons[active] || icons.light;
+    btn.setAttribute("aria-label", labels[active] || labels.light);
   }
+  document.querySelectorAll("[data-skin]").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.skin === active);
+  });
 }
 
 function initTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
+  const saved = normalizeTheme(localStorage.getItem(THEME_KEY) || "");
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const theme = saved === "dark" || saved === "light" ? saved : prefersDark ? "dark" : "light";
+  let theme = "light";
+  if (["dark", "bi", "ocean", "forest", "light"].includes(saved)) theme = saved;
+  else if (prefersDark) theme = "dark";
   applyTheme(theme);
+
   const btn = document.getElementById("themeToggle");
   if (btn) {
     btn.addEventListener("click", () => {
-      const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      const cur = normalizeTheme(localStorage.getItem(THEME_KEY) || "light");
+      const order = ["light", "bi", "ocean", "forest", "dark"];
+      const next = order[(order.indexOf(cur) + 1) % order.length];
       applyTheme(next);
     });
   }
+
+  document.querySelectorAll("[data-skin]").forEach((chip) => {
+    chip.addEventListener("click", () => applyTheme(chip.dataset.skin));
+  });
 }
 
 loadLogs();
@@ -2500,6 +2820,7 @@ renderSubtaskPresetList();
 updateSubtaskDatalists();
 initPieRange();
 initCalendar();
+initTimeline();
 initMobileNav();
 initManualForm();
 initSleepForm();

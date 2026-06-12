@@ -10,7 +10,10 @@
   <script>
     (function () {
       var t = localStorage.getItem("kaoyan_theme_v1");
-      if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      if (t === "morandi") t = "bi";
+      if (t === "dark" || t === "bi" || t === "ocean" || t === "forest") {
+        document.documentElement.setAttribute("data-theme", t);
+      } else if (!t && window.matchMedia("(prefers-color-scheme: dark)").matches) {
         document.documentElement.setAttribute("data-theme", "dark");
       }
     })();
@@ -121,6 +124,11 @@
             <span class="dash-tile-title">数据统计</span>
             <span class="dash-tile-sub">图表 · 日历</span>
           </button>
+          <button type="button" class="dash-tile" data-goto="timeline">
+            <span class="dash-tile-icon">🕐</span>
+            <span class="dash-tile-title">一日时间轴</span>
+            <span class="dash-tile-sub">几点在干什么</span>
+          </button>
           <button type="button" class="dash-tile" data-goto="more">
             <span class="dash-tile-icon">⚙</span>
             <span class="dash-tile-title">设置</span>
@@ -156,6 +164,10 @@
           </label>
           <div class="subtask-chips" id="subtaskChips"></div>
         </div>
+        <label class="subtask-label timer-note-label">
+          备注（可选）
+          <input type="text" id="timerNote" placeholder="例如：做了 4.2 课后题" maxlength="80" />
+        </label>
         <div class="timer-ring-wrap" id="timerRingWrap">
           <div class="timer-ring" id="timerRing"></div>
           <div class="timer-display" id="timerDisplay">00:00:00</div>
@@ -184,6 +196,10 @@
             起床时间
             <input type="time" id="sleepWakeTime" value="07:00" required />
           </label>
+          <label class="full">
+            备注（可选）
+            <input type="text" id="sleepNote" placeholder="例如：睡得不错" maxlength="80" />
+          </label>
           <button type="submit" class="btn primary full">记录睡眠</button>
         </form>
       </section>
@@ -200,6 +216,10 @@
             <select id="manualSubject" required></select>
           </label>
           <label>
+            开始时间（可选，填了才进时间轴）
+            <input type="time" id="manualStartTime" />
+          </label>
+          <label>
             时长（分钟）
             <input type="number" id="manualMinutes" min="1" max="720" value="60" required />
           </label>
@@ -214,6 +234,20 @@
           </label>
           <button type="submit" class="btn primary full">添加记录</button>
         </form>
+      </section>
+
+      <section class="card span-2" data-panel="timeline" id="timelineSection">
+        <div class="card-head">
+          <h2>🕐 一日时间轴</h2>
+          <div class="cal-nav">
+            <button type="button" class="btn ghost sm" id="timelinePrev" aria-label="前一天">‹</button>
+            <input type="date" class="timeline-date-input" id="timelineDate" aria-label="选择日期" />
+            <button type="button" class="btn ghost sm" id="timelineNext" aria-label="后一天">›</button>
+          </div>
+        </div>
+        <p class="muted block">6:00–24:00 一天里各时段在做什么；计时结束会自动记录时间。</p>
+        <div class="day-timeline" id="timelineLanes"></div>
+        <div id="timelineUntimed"></div>
       </section>
 
       <section class="card span-2" data-panel="stats" id="leaderboardSection">
@@ -331,6 +365,16 @@
           </ol>
         </div>
 
+        <h2 style="margin-top:1.25rem">🎨 界面主题</h2>
+        <p class="muted block">Bi 为低饱和紫粉；海洋 / 森林为深浅渐变。右上角按钮可循环切换。</p>
+        <div class="skin-chips" id="skinChips">
+          <button type="button" class="chip skin-chip active" data-skin="light">默认</button>
+          <button type="button" class="chip skin-chip" data-skin="bi">Bi</button>
+          <button type="button" class="chip skin-chip" data-skin="ocean">海洋</button>
+          <button type="button" class="chip skin-chip" data-skin="forest">森林</button>
+          <button type="button" class="chip skin-chip" data-skin="dark">深色</button>
+        </div>
+
         <h2 style="margin-top:1.25rem">📅 倒数日</h2>
         <p class="muted block">显示在首页顶部，默认目标为当年 12 月下旬初试（可改）。</p>
         <form id="countdownForm" class="form countdown-form">
@@ -445,6 +489,10 @@
       <button type="button" class="nav-btn" data-tab="today">
         <span class="nav-icon" aria-hidden="true">📋</span>
         <span>今日</span>
+      </button>
+      <button type="button" class="nav-btn" data-tab="timeline">
+        <span class="nav-icon" aria-hidden="true">🕐</span>
+        <span>日程</span>
       </button>
       <button type="button" class="nav-btn" data-tab="stats">
         <span class="nav-icon" aria-hidden="true">📊</span>
