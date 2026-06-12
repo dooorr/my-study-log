@@ -153,17 +153,6 @@
         </div>
         <p class="focus-note" id="timerModeHint">正计时，结束手动记录</p>
         <div class="subject-chips" id="timerChips" aria-label="选择类别"></div>
-        <details class="timer-custom-add">
-          <summary>➕ 自定义类别</summary>
-          <form id="timerCustomForm" class="timer-custom-form">
-            <input type="text" id="timerCustomName" placeholder="名称，最多 12 字" maxlength="12" required />
-            <div class="cat-group-pick" id="timerCatGroupPick" role="radiogroup" aria-label="归属">
-              <button type="button" class="chip cat-group-chip active" data-cat-group="study">学习</button>
-              <button type="button" class="chip cat-group-chip" data-cat-group="life">生活</button>
-            </div>
-            <button type="submit" class="btn primary sm">添加并选用</button>
-          </form>
-        </details>
         <p class="timer-subject desktop-only">
           类别：<select id="timerSubject"></select>
         </p>
@@ -389,7 +378,7 @@
           <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="goal">🎯</button>
           <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="phase">📆</button>
           <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="timer">🍅</button>
-          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="cats">🏷</button>
+          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="cats" aria-label="自定义类别">🏷<span class="subnav-txt">类别</span></button>
           <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="backup">💾</button>
         </nav>
 
@@ -503,9 +492,10 @@
         </div>
 
         <div class="hub-pane more-pane" data-more-view="cats">
-          <h2>🏷 类别与子任务</h2>
+          <h2>🏷 自定义类别</h2>
+          <p class="muted block">也可在「计时」页点 <strong>➕ 自定义类别</strong> 快速添加</p>
           <div class="mobile-fill-scroll">
-            <h3 class="more-pane-sub">自定义类别</h3>
+            <h3 class="more-pane-sub">添加类别</h3>
             <form id="customCatForm" class="custom-add-row">
               <input type="text" id="customCatName" placeholder="输入名称，最多 12 字" maxlength="12" required />
               <div class="cat-group-pick" id="customCatGroupPick" role="radiogroup" aria-label="归属">
@@ -565,6 +555,28 @@
         <span>统计</span>
       </button>
     </nav>
+  </div>
+  <div class="log-edit-modal" id="customCatModal" hidden aria-hidden="true">
+    <div class="log-edit-backdrop" id="customCatBackdrop"></div>
+    <div class="log-edit-sheet" role="dialog" aria-labelledby="customCatTitle" aria-modal="true">
+      <h3 id="customCatTitle">自定义类别</h3>
+      <p class="muted block custom-cat-modal-hint">选「学习」计入学习时长；选「生活」归入生活统计</p>
+      <form id="timerCustomForm" class="custom-cat-sheet-form">
+        <label class="log-edit-field">
+          名称
+          <input type="text" id="timerCustomName" placeholder="最多 12 字" maxlength="12" required />
+        </label>
+        <p class="log-edit-field-label">归属</p>
+        <div class="cat-group-pick cat-group-pick-sheet" id="timerCatGroupPick" role="radiogroup" aria-label="归属">
+          <button type="button" class="chip cat-group-chip active" data-cat-group="study">学习</button>
+          <button type="button" class="chip cat-group-chip" data-cat-group="life">生活</button>
+        </div>
+        <div class="log-edit-actions">
+          <button type="button" class="btn" id="customCatCancel">取消</button>
+          <button type="submit" class="btn primary">添加并选用</button>
+        </div>
+      </form>
+    </div>
   </div>
   <div class="log-edit-modal" id="logEditModal" hidden aria-hidden="true">
     <div class="log-edit-backdrop" id="logEditBackdrop"></div>

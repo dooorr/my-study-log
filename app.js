@@ -1328,10 +1328,11 @@ function renderTimerChips() {
   const parts = [
     `<div class="chip-group"><span class="chip-group-label">📖 学习</span><div class="chip-row">${studyItems.map(chipHtml).join("")}</div></div>`,
     `<div class="chip-group"><span class="chip-group-label">🏠 生活</span><div class="chip-row">${lifeItems.map(chipHtml).join("")}</div></div>`,
+    `<div class="chip-group chip-group-custom-add"><button type="button" class="chip custom-add-chip" id="openTimerCustomBtn">➕ 自定义类别</button></div>`,
   ];
   wrap.innerHTML = parts.join("");
 
-  wrap.querySelectorAll(".chip").forEach((chip) => {
+  wrap.querySelectorAll(".chip[data-subject]").forEach((chip) => {
     chip.addEventListener("click", () => setTimerSubject(chip.dataset.subject));
   });
   setTimerSubject(timerSubject);
@@ -1655,6 +1656,20 @@ function formatClockTime(d) {
   return `${h}:${m}`;
 }
 
+function dayBounds(dateStr) {
+  const start = new Date(`${dateStr}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
+function formatSegmentTimeRange(start, end, dateStr) {
+  const { end: dayEnd } = dayBounds(dateStr);
+  const startStr = formatClockTime(start);
+  const endStr = end.getTime() >= dayEnd.getTime() ? "24:00" : formatClockTime(end);
+  return `${startStr}–${endStr}`;
+}
+
 function getLogTimeRange(log) {
   if (log.startAt && log.endAt) {
     const start = new Date(log.startAt);
@@ -1673,6 +1688,33 @@ function getLogTimeRange(log) {
     }
   }
   return null;
+}
+
+function getTimelineSegmentForDate(log, dateStr) {
+  const range = getLogTimeRange(log);
+  if (!range) {
+    if (log.date !== dateStr) return null;
+    return { log, untimed: true };
+  }
+
+  const { start: dayStart, end: dayEnd } = dayBounds(dateStr);
+  if (range.end <= dayStart || range.start >= dayEnd) return null;
+
+  const clipStart = range.start < dayStart ? dayStart : range.start;
+  const clipEnd = range.end > dayEnd ? dayEnd : range.end;
+  const startMin = (clipStart - dayStart) / 60000;
+  const endMin = (clipEnd - dayStart) / 60000;
+  if (endMin <= startMin) return null;
+
+  return {
+    log,
+    start: clipStart,
+    end: clipEnd,
+    startMin,
+    endMin,
+    isContinuation: range.start < dayStart,
+    continuesNext: range.end > dayEnd,
+  };
 }
 
 function timelineBlockClass(log) {
@@ -1712,38 +1754,17 @@ function renderDayTimeline() {
   const dayEndMin = TIMELINE_DAY_END * 60;
   const spanMin = dayEndMin - dayStartMin;
 
-  const dayLogs = logs.filter((l) => l.date === date);
   const timed = [];
   const untimed = [];
 
-  for (const log of dayLogs) {
-    const range = getLogTimeRange(log);
-    if (!range) {
+  for (const log of logs) {
+    const seg = getTimelineSegmentForDate(log, date);
+    if (!seg) continue;
+    if (seg.untimed) {
       untimed.push(log);
       continue;
     }
-    let startMin = range.start.getHours() * 60 + range.start.getMinutes();
-    let endMin = range.end.getHours() * 60 + range.end.getMinutes();
-    if (endMin <= startMin && range.end > range.start) {
-      endMin += 24 * 60;
-    }
-    if (endMin <= dayStartMin || startMin >= dayEndMin) {
-      untimed.push(log);
-      continue;
-    }
-    startMin = Math.max(startMin, dayStartMin);
-    endMin = Math.min(endMin, dayEndMin);
-    if (endMin <= startMin) {
-      untimed.push(log);
-      continue;
-    }
-    timed.push({
-      log,
-      start: new Date(range.start),
-      end: new Date(range.end),
-      startMin,
-      endMin,
-    });
+    timed.push(seg);
   }
 
   timed.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
@@ -1767,14 +1788,19 @@ function renderDayTimeline() {
     const laneW = 100 / laneCols;
     const leftPct = item.lane * laneW + gapX / 2;
     const widthPct = Math.max(7, laneW - gapX);
+    const durationMin = item.endMin - item.startMin;
     const sizeClass =
       heightPct < 3.2 ? " tl-block--tiny" : heightPct < 5.5 ? " tl-block--compact" : "";
+    const shapeClass = heightPct >= 7 || durationMin >= 90 ? " tl-block--long" : "";
+    const splitClass =
+      (item.isContinuation ? " tl-block--split-top" : "") + (item.continuesNext ? " tl-block--split-bottom" : "");
     const titleBase = formatEntryDisplay(item.log.subject, item.log.subtask);
     const extra = logExtraNote(item.log);
     const title = extra ? `${titleBase} · ${extra}` : titleBase;
     const tip = item.log.note ? `${titleBase} — ${item.log.note}` : titleBase;
-    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}" data-log-id="${escapeHtml(item.log.id)}" role="button" tabindex="0" aria-label="编辑 ${escapeHtml(title)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
-      <span class="tl-block-time">${formatClockTime(item.start)}–${formatClockTime(item.end)}</span>
+    const timeLabel = formatSegmentTimeRange(item.start, item.end, date);
+    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}${shapeClass}${splitClass}" data-log-id="${escapeHtml(item.log.id)}" role="button" tabindex="0" aria-label="编辑 ${escapeHtml(title)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
+      <span class="tl-block-time">${timeLabel}${item.continuesNext ? " ↓" : item.isContinuation ? " ↑" : ""}</span>
       <span class="tl-block-label">${escapeHtml(title)}</span>
     </div>`;
   }
@@ -2838,10 +2864,38 @@ function initCustomForm() {
   });
 }
 
+function openCustomCatModal() {
+  const modal = document.getElementById("customCatModal");
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+  const input = document.getElementById("timerCustomName");
+  if (input) {
+    input.value = "";
+    setTimeout(() => input.focus(), 80);
+  }
+}
+
+function closeCustomCatModal() {
+  const modal = document.getElementById("customCatModal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+}
+
 function initTimerCustomForm() {
   initCatGroupPick("timerCatGroupPick");
   const form = document.getElementById("timerCustomForm");
+  const chips = document.getElementById("timerChips");
   if (!form) return;
+
+  chips?.addEventListener("click", (e) => {
+    if (e.target.closest("#openTimerCustomBtn")) openCustomCatModal();
+  });
+
+  document.getElementById("customCatBackdrop")?.addEventListener("click", closeCustomCatModal);
+  document.getElementById("customCatCancel")?.addEventListener("click", closeCustomCatModal);
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const input = document.getElementById("timerCustomName");
@@ -2849,6 +2903,7 @@ function initTimerCustomForm() {
     if (addCustomCategory(input.value, group)) {
       input.value = "";
       setTimerSubject(customCategories[customCategories.length - 1].label);
+      closeCustomCatModal();
       showToast(`已添加「${customCategories[customCategories.length - 1].label}」`);
     }
   });
