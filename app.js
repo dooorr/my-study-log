@@ -8,6 +8,7 @@ const DAILY_GOAL_KEY = "kaoyan_daily_goal_v1";
 const TIMER_MODE_KEY = "kaoyan_timer_mode_v1";
 const POMODORO_WORK_KEY = "kaoyan_pomodoro_work_v1";
 const POMODORO_BREAK_KEY = "kaoyan_pomodoro_break_v1";
+const TIMER_STATE_KEY = "kaoyan_timer_state_v1";
 const THEME_KEY = "kaoyan_theme_v1";
 const LOG_ORDER_KEY = "kaoyan_log_order_v1";
 const COUNTDOWN_KEY = "kaoyan_countdown_v1";
@@ -201,8 +202,11 @@ let calendarMonth = new Date().getMonth();
 let selectedCalDate = "";
 let timelineViewDate = "";
 let editingLogId = "";
-let timerStartedAt = 0;
+let timerSessionStartAt = 0;
+let timerNormalAccumulated = 0;
+let timerRunStartedAt = 0;
 let pomodoroWorkStartAt = 0;
+let pomodoroPhaseEndAt = 0;
 
 function getBuiltinLabels() {
   return [...STUDY_CATS, ...LIFE_CATS].map((c) => c.label);
@@ -2603,10 +2607,133 @@ function savePomodoroSettings(work, breakMin) {
   }
 }
 
+function syncTimerFromWallClock() {
+  if (timerMode === "normal") {
+    if (timerRunning && timerRunStartedAt) {
+      timerSeconds = timerNormalAccumulated + Math.floor((Date.now() - timerRunStartedAt) / 1000);
+    } else {
+      timerSeconds = timerNormalAccumulated;
+    }
+    return;
+  }
+  if (timerMode !== "pomodoro" || pomodoroPhase === "idle") return;
+  if (!timerRunning) return;
+  while (timerRunning && pomodoroPhase !== "idle") {
+    const rem = Math.ceil((pomodoroPhaseEndAt - Date.now()) / 1000);
+    if (rem > 0) {
+      timerSeconds = rem;
+      return;
+    }
+    timerSeconds = 0;
+    onPomodoroPhaseEnd();
+    if (pomodoroPhase === "idle" || !timerRunning) return;
+  }
+}
+
+function saveTimerState() {
+  if (timerRunning) syncTimerFromWallClock();
+  const active =
+    timerRunning || timerSeconds > 0 || pomodoroPhase !== "idle" || timerNormalAccumulated > 0;
+  if (!active) {
+    localStorage.removeItem(TIMER_STATE_KEY);
+    return;
+  }
+  localStorage.setItem(
+    TIMER_STATE_KEY,
+    JSON.stringify({
+      running: timerRunning,
+      mode: timerMode,
+      subject: timerSubject,
+      subtask: getTimerSubtaskValue(),
+      normalAccumulated: timerNormalAccumulated,
+      sessionStartAt: timerSessionStartAt,
+      runStartedAt: timerRunning && timerMode === "normal" ? timerRunStartedAt : 0,
+      pomodoroPhase,
+      pomodoroPhaseTotal,
+      pomodoroWorkStartAt,
+      timerSeconds,
+      pomodoroPhaseEndAt: timerRunning && timerMode === "pomodoro" ? pomodoroPhaseEndAt : 0,
+    })
+  );
+}
+
+function clearTimerState() {
+  localStorage.removeItem(TIMER_STATE_KEY);
+}
+
+function restoreTimerState() {
+  const raw = localStorage.getItem(TIMER_STATE_KEY);
+  if (!raw) return;
+  try {
+    const s = JSON.parse(raw);
+    timerMode = s.mode === "pomodoro" ? "pomodoro" : "normal";
+    timerSubject = s.subject || timerSubject;
+    timerNormalAccumulated = Number(s.normalAccumulated) || 0;
+    timerSessionStartAt = Number(s.sessionStartAt) || 0;
+    timerRunStartedAt = Number(s.runStartedAt) || 0;
+    pomodoroPhase = s.pomodoroPhase || "idle";
+    pomodoroPhaseTotal = Number(s.pomodoroPhaseTotal) || 0;
+    pomodoroWorkStartAt = Number(s.pomodoroWorkStartAt) || 0;
+    timerSeconds = Number(s.timerSeconds) || 0;
+    pomodoroPhaseEndAt = Number(s.pomodoroPhaseEndAt) || 0;
+    timerRunning = !!s.running;
+
+    document.querySelectorAll(".mode-chip").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.mode === timerMode);
+    });
+    const hint = document.getElementById("timerModeHint");
+    if (hint) {
+      hint.textContent =
+        timerMode === "pomodoro"
+          ? `番茄钟 ${pomodoroWorkMin}+${pomodoroBreakMin} 分，专注结束自动记录`
+          : "正计时，结束手动记录";
+    }
+
+    setTimerSubject(timerSubject);
+    const subEl = document.getElementById("timerSubtask");
+    if (subEl && s.subtask) subEl.value = s.subtask;
+
+    if (
+      timerRunning &&
+      timerMode === "pomodoro" &&
+      pomodoroPhase !== "idle" &&
+      !pomodoroPhaseEndAt &&
+      timerSeconds > 0
+    ) {
+      pomodoroPhaseEndAt = Date.now() + timerSeconds * 1000;
+    }
+    if (timerRunning) resumeTimerTick();
+    syncTimerFromWallClock();
+    setTimerUI();
+    if (timerRunning || timerSeconds > 0 || pomodoroPhase !== "idle") {
+      showToast("已恢复进行中的计时");
+    }
+  } catch {
+    clearTimerState();
+  }
+}
+
+function resumeTimerTick() {
+  if (timerTick) clearInterval(timerTick);
+  timerTick = setInterval(() => {
+    syncTimerFromWallClock();
+    setTimerUI();
+  }, 1000);
+}
+
 function clearTimerTick() {
+  if (timerRunning) syncTimerFromWallClock();
   timerRunning = false;
   if (timerTick) clearInterval(timerTick);
   timerTick = null;
+  if (timerMode === "normal" && timerRunStartedAt) {
+    timerNormalAccumulated = timerSeconds;
+    timerRunStartedAt = 0;
+  }
+  if (timerMode === "pomodoro" && pomodoroPhase !== "idle") {
+    pomodoroPhaseEndAt = 0;
+  }
+  saveTimerState();
 }
 
 function setTimerMode(mode) {
@@ -2615,8 +2742,13 @@ function setTimerMode(mode) {
     if (!confirm("切换模式会重置当前计时")) return;
     clearTimerTick();
     timerSeconds = 0;
+    timerNormalAccumulated = 0;
+    timerSessionStartAt = 0;
+    timerRunStartedAt = 0;
+    pomodoroPhaseEndAt = 0;
     pomodoroPhase = "idle";
     pomodoroPhaseTotal = 0;
+    clearTimerState();
   }
   timerMode = mode;
   localStorage.setItem(TIMER_MODE_KEY, mode);
@@ -2635,6 +2767,7 @@ function setTimerMode(mode) {
 
 function pomodoroElapsedWorkSeconds() {
   if (pomodoroPhase !== "work" || !pomodoroPhaseTotal) return 0;
+  if (timerRunning) syncTimerFromWallClock();
   return Math.max(0, pomodoroPhaseTotal - timerSeconds);
 }
 
@@ -2667,6 +2800,8 @@ function onPomodoroPhaseEnd() {
     pomodoroPhase = "break";
     pomodoroPhaseTotal = pomodoroBreakMin * 60;
     timerSeconds = pomodoroPhaseTotal;
+    pomodoroPhaseEndAt = Date.now() + pomodoroPhaseTotal * 1000;
+    saveTimerState();
     setTimerUI();
     return;
   }
@@ -2675,7 +2810,9 @@ function onPomodoroPhaseEnd() {
     pomodoroPhase = "idle";
     timerSeconds = 0;
     pomodoroPhaseTotal = 0;
+    pomodoroPhaseEndAt = 0;
     clearTimerTick();
+    clearTimerState();
     setTimerUI();
   }
 }
@@ -2732,19 +2869,20 @@ function startTimer() {
     pomodoroPhaseTotal = pomodoroWorkMin * 60;
     timerSeconds = pomodoroPhaseTotal;
     pomodoroWorkStartAt = Date.now();
+    pomodoroPhaseEndAt = Date.now() + pomodoroPhaseTotal * 1000;
+  } else if (timerMode === "pomodoro") {
+    pomodoroPhaseEndAt = Date.now() + timerSeconds * 1000;
+  } else if (timerNormalAccumulated === 0 && timerSeconds === 0) {
+    timerSessionStartAt = Date.now();
+    timerNormalAccumulated = 0;
+    timerRunStartedAt = Date.now();
+  } else {
+    timerRunStartedAt = Date.now();
   }
 
-  timerStartedAt = Date.now();
   timerRunning = true;
-  timerTick = setInterval(() => {
-    if (timerMode === "pomodoro") {
-      timerSeconds -= 1;
-      if (timerSeconds <= 0) onPomodoroPhaseEnd();
-    } else {
-      timerSeconds += 1;
-    }
-    setTimerUI();
-  }, 1000);
+  resumeTimerTick();
+  saveTimerState();
   setTimerUI();
 }
 
@@ -2795,8 +2933,8 @@ function stopTimer() {
   } else if (timerMode === "normal") {
     if (timerSeconds >= 30) {
       const end = new Date();
-      const start = timerStartedAt
-        ? new Date(timerStartedAt)
+      const start = timerSessionStartAt
+        ? new Date(timerSessionStartAt)
         : new Date(end.getTime() - timerSeconds * 1000);
       addLog({
         date: todayStr(),
@@ -2820,8 +2958,12 @@ function stopTimer() {
 
   const badge = document.getElementById("pomodoroBadge");
   if (badge) badge.hidden = true;
-  timerStartedAt = 0;
+  timerSessionStartAt = 0;
+  timerNormalAccumulated = 0;
+  timerRunStartedAt = 0;
   pomodoroWorkStartAt = 0;
+  pomodoroPhaseEndAt = 0;
+  clearTimerState();
   setTimerUI();
   if (logged) showToast(pickRandom(ENCOURAGE.afterLog));
 }
@@ -3036,10 +3178,27 @@ function initTimerCustomForm() {
 function initTimer() {
   document.getElementById("timerSubject").addEventListener("change", (e) => {
     setTimerSubject(e.target.value);
+    saveTimerState();
   });
   document.getElementById("timerStart").addEventListener("click", startTimer);
   document.getElementById("timerPause").addEventListener("click", pauseTimer);
   document.getElementById("timerStop").addEventListener("click", stopTimer);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") {
+      saveTimerState();
+      return;
+    }
+    syncTimerFromWallClock();
+    setTimerUI();
+    saveTimerState();
+  });
+  window.addEventListener("pageshow", () => {
+    syncTimerFromWallClock();
+    setTimerUI();
+    saveTimerState();
+  });
+  window.addEventListener("pagehide", saveTimerState);
+  restoreTimerState();
   setTimerUI();
 }
 
