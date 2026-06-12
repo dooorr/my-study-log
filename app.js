@@ -1466,7 +1466,7 @@ function renderDayTimeline() {
 
   timed.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
   const laneCount = assignTimelineLanes(timed);
-  const laneHeight = 2.55;
+  const laneCols = Math.max(1, laneCount);
 
   let hoursHtml = "";
   for (let h = TIMELINE_DAY_START; h <= TIMELINE_DAY_END; h += 2) {
@@ -1476,20 +1476,23 @@ function renderDayTimeline() {
 
   let blocksHtml = "";
   for (const item of timed) {
-    const left = ((item.startMin - dayStartMin) / spanMin) * 100;
-    const width = Math.max(1.5, ((item.endMin - item.startMin) / spanMin) * 100);
+    const topPct = ((item.startMin - dayStartMin) / spanMin) * 100;
+    const heightPct = Math.max(2.2, ((item.endMin - item.startMin) / spanMin) * 100);
+    const laneW = 100 / laneCols;
+    const leftPct = item.lane * laneW;
+    const widthPct = Math.max(8, laneW - 0.6);
     const titleBase = formatEntryDisplay(item.log.subject, item.log.subtask);
     const extra = logExtraNote(item.log);
     const title = extra ? `${titleBase} · ${extra}` : titleBase;
     const tip = item.log.note ? `${titleBase} — ${item.log.note}` : titleBase;
-    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}" style="left:${left}%;width:${width}%;top:calc(${item.lane} * ${laneHeight}rem);height:${laneHeight - 0.15}rem" title="${escapeHtml(tip)}">
+    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
       <span class="tl-block-time">${formatClockTime(item.start)}–${formatClockTime(item.end)}</span>
       <span class="tl-block-label">${escapeHtml(title)}</span>
     </div>`;
   }
 
   lanesEl.innerHTML = `<div class="tl-hours">${hoursHtml}</div>
-    <div class="tl-track" style="min-height:${Math.max(1, laneCount) * laneHeight}rem">${blocksHtml}</div>`;
+    <div class="tl-track" data-lanes="${laneCols}">${blocksHtml}</div>`;
 
   if (untimedEl) {
     if (!untimed.length) {
