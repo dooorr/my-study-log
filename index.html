@@ -153,6 +153,17 @@
         </div>
         <p class="focus-note" id="timerModeHint">正计时，结束手动记录</p>
         <div class="subject-chips" id="timerChips" aria-label="选择类别"></div>
+        <details class="timer-custom-add">
+          <summary>➕ 自定义类别</summary>
+          <form id="timerCustomForm" class="timer-custom-form">
+            <input type="text" id="timerCustomName" placeholder="名称，最多 12 字" maxlength="12" required />
+            <div class="cat-group-pick" id="timerCatGroupPick" role="radiogroup" aria-label="归属">
+              <button type="button" class="chip cat-group-chip active" data-cat-group="study">学习</button>
+              <button type="button" class="chip cat-group-chip" data-cat-group="life">生活</button>
+            </div>
+            <button type="submit" class="btn primary sm">添加并选用</button>
+          </form>
+        </details>
         <p class="timer-subject desktop-only">
           类别：<select id="timerSubject"></select>
         </p>
@@ -497,6 +508,10 @@
             <h3 class="more-pane-sub">自定义类别</h3>
             <form id="customCatForm" class="custom-add-row">
               <input type="text" id="customCatName" placeholder="输入名称，最多 12 字" maxlength="12" required />
+              <div class="cat-group-pick" id="customCatGroupPick" role="radiogroup" aria-label="归属">
+                <button type="button" class="chip cat-group-chip active" data-cat-group="study">学习</button>
+                <button type="button" class="chip cat-group-chip" data-cat-group="life">生活</button>
+              </div>
               <button type="submit" class="btn primary">添加</button>
             </form>
             <ul class="custom-cat-list" id="customCatList"></ul>

@@ -2293,13 +2293,63 @@ input[type="text"] {
 
 .custom-add-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
+  align-items: center;
 }
 
 .custom-add-row input {
-  flex: 1;
+  flex: 1 1 8rem;
   margin-top: 0;
+  min-width: 0;
+}
+
+.cat-group-pick {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.cat-group-chip {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+}
+
+.custom-cat-type {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: 0.25rem;
+}
+
+.timer-custom-add {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.timer-custom-add summary {
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+  padding: 0.25rem 0;
+}
+
+.timer-custom-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin-top: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2, var(--card));
+}
+
+.timer-custom-form input {
+  flex: 1 1 7rem;
+  min-width: 0;
+  margin: 0;
 }
 
 .custom-cat-list {

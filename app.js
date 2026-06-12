@@ -143,7 +143,7 @@ const LEGACY_SUBJECT_MAP = {
   其他: "其他",
 };
 
-/** @type {string[]} */
+/** @type {{ label: string, group: "study" | "life" }[]} */
 let customCategories = [];
 
 /** @type {Record<string, string[]>} 日期 -> 记录 id 顺序（仅影响列表展示） */
@@ -186,13 +186,59 @@ function getBuiltinLabels() {
   return [...STUDY_CATS, ...LIFE_CATS].map((c) => c.label);
 }
 
+function normalizeCustomCategory(raw) {
+  if (typeof raw === "string") {
+    const label = raw.trim().slice(0, 12);
+    if (!label) return null;
+    return { label, group: "life" };
+  }
+  if (raw && typeof raw === "object") {
+    const label =
+      typeof raw.label === "string"
+        ? raw.label.trim().slice(0, 12)
+        : typeof raw.name === "string"
+          ? raw.name.trim().slice(0, 12)
+          : "";
+    if (!label) return null;
+    return { label, group: raw.group === "study" ? "study" : "life" };
+  }
+  return null;
+}
+
+function normalizeCustomCategoriesList(arr) {
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const raw of arr) {
+    const item = normalizeCustomCategory(raw);
+    if (!item || seen.has(item.label) || getBuiltinLabels().includes(item.label)) continue;
+    seen.add(item.label);
+    out.push(item);
+  }
+  return out;
+}
+
+function customAsChipMeta(c) {
+  return {
+    label: c.label,
+    group: c.group,
+    primary: false,
+    lifeKind: c.group === "life" ? "other" : undefined,
+    custom: true,
+  };
+}
+
+function getSelectedCatGroup(containerId, fallback = "life") {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return fallback;
+  const active = wrap.querySelector("[data-cat-group].active");
+  const group = active?.getAttribute("data-cat-group");
+  return group === "study" ? "study" : "life";
+}
+
 function getAllCategories() {
   const builtins = [...STUDY_CATS, ...LIFE_CATS];
-  const customs = customCategories.map((label) => ({
-    label,
-    group: "custom",
-    primary: false,
-  }));
+  const customs = customCategories.map((c) => customAsChipMeta(c));
   return [...builtins, ...customs];
 }
 
@@ -207,9 +253,7 @@ function getCategoryMeta(label) {
 function loadCustomCategories() {
   try {
     const raw = localStorage.getItem(CUSTOM_CATS_KEY);
-    customCategories = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(customCategories)) customCategories = [];
-    customCategories = customCategories.filter((s) => typeof s === "string" && s.trim());
+    customCategories = normalizeCustomCategoriesList(raw ? JSON.parse(raw) : []);
   } catch {
     customCategories = [];
   }
@@ -373,8 +417,8 @@ function migrateLogs() {
       migrated = true;
     }
     if (!known.has(log.subject) && log.subject !== "其他") {
-      if (!customCategories.includes(log.subject)) {
-        customCategories.push(log.subject);
+      if (!customCategories.some((c) => c.label === log.subject)) {
+        customCategories.push({ label: log.subject, group: "life" });
         migrated = true;
       }
     }
@@ -1020,11 +1064,11 @@ function isMobileLayout() {
 }
 
 function isStudyLabel(label) {
-  return STUDY_CATS.some((c) => c.label === label);
+  return getCategoryMeta(label)?.group === "study";
 }
 
 function isLifeLabel(label) {
-  return LIFE_CATS.some((c) => c.label === label);
+  return getCategoryMeta(label)?.group === "life";
 }
 
 function tagClassFor(label) {
@@ -1226,9 +1270,14 @@ function updateSubtaskDatalists() {
 
 function fillSubjectSelects() {
   const groups = [
-    { title: "学习", items: STUDY_CATS },
-    { title: "生活", items: LIFE_CATS },
-    { title: "自定义", items: customCategories.map((label) => ({ label, group: "custom" })) },
+    {
+      title: "学习",
+      items: [...STUDY_CATS, ...customCategories.filter((c) => c.group === "study").map((c) => ({ label: c.label }))],
+    },
+    {
+      title: "生活",
+      items: [...LIFE_CATS, ...customCategories.filter((c) => c.group === "life").map((c) => ({ label: c.label }))],
+    },
   ];
   const html = groups
     .filter((g) => g.items.length)
@@ -1250,11 +1299,12 @@ function chipHtml(c) {
   let tag = "";
   if (c.group === "study") {
     classes.push(c.primary ? "primary" : "later");
-    tag = c.primary ? "主攻" : "后期";
+    tag = c.custom ? "自定义" : c.primary ? "主攻" : "后期";
   } else if (c.group === "life") {
     classes.push("life");
-    tag =
-      c.lifeKind === "sleep"
+    tag = c.custom
+      ? "自定义"
+      : c.lifeKind === "sleep"
         ? "休息"
         : c.lifeKind === "phone"
           ? "记录"
@@ -1273,15 +1323,12 @@ function chipHtml(c) {
 
 function renderTimerChips() {
   const wrap = document.getElementById("timerChips");
+  const studyItems = [...STUDY_CATS, ...customCategories.filter((c) => c.group === "study").map(customAsChipMeta)];
+  const lifeItems = [...LIFE_CATS, ...customCategories.filter((c) => c.group === "life").map(customAsChipMeta)];
   const parts = [
-    `<div class="chip-group"><span class="chip-group-label">📖 学习</span><div class="chip-row">${STUDY_CATS.map(chipHtml).join("")}</div></div>`,
-    `<div class="chip-group"><span class="chip-group-label">🏠 生活</span><div class="chip-row">${LIFE_CATS.map(chipHtml).join("")}</div></div>`,
+    `<div class="chip-group"><span class="chip-group-label">📖 学习</span><div class="chip-row">${studyItems.map(chipHtml).join("")}</div></div>`,
+    `<div class="chip-group"><span class="chip-group-label">🏠 生活</span><div class="chip-row">${lifeItems.map(chipHtml).join("")}</div></div>`,
   ];
-  if (customCategories.length) {
-    parts.push(
-      `<div class="chip-group"><span class="chip-group-label">✨ 自定义</span><div class="chip-row">${customCategories.map((label) => chipHtml({ label, group: "custom" })).join("")}</div></div>`
-    );
-  }
   wrap.innerHTML = parts.join("");
 
   wrap.querySelectorAll(".chip").forEach((chip) => {
@@ -1299,9 +1346,9 @@ function renderCustomList() {
   }
   list.innerHTML = customCategories
     .map(
-      (name) => `<li class="custom-cat-item">
-        <span>${escapeHtml(name)}</span>
-        <button type="button" class="btn ghost sm" data-rm-cat="${escapeHtml(name)}">删</button>
+      (c) => `<li class="custom-cat-item">
+        <span>${escapeHtml(c.label)} <span class="custom-cat-type">${c.group === "study" ? "学习" : "生活"}</span></span>
+        <button type="button" class="btn ghost sm" data-rm-cat="${escapeHtml(c.label)}">删</button>
       </li>`
     )
     .join("");
@@ -1310,7 +1357,7 @@ function renderCustomList() {
     btn.addEventListener("click", () => {
       const name = btn.getAttribute("data-rm-cat");
       if (!confirm(`删除自定义「${name}」？已有记录不会删，只是下拉里没了`)) return;
-      customCategories = customCategories.filter((c) => c !== name);
+      customCategories = customCategories.filter((c) => c.label !== name);
       saveCustomCategories();
       fillSubjectSelects();
       renderTimerChips();
@@ -1320,14 +1367,14 @@ function renderCustomList() {
   });
 }
 
-function addCustomCategory(name) {
+function addCustomCategory(name, group = "life") {
   const label = name.trim().slice(0, 12);
   if (!label) return false;
   if (getAllLabels().includes(label)) {
     alert("这个名字已经有了");
     return false;
   }
-  customCategories.push(label);
+  customCategories.push({ label, group: group === "study" ? "study" : "life" });
   saveCustomCategories();
   fillSubjectSelects();
   fillPresetSubjectSelect();
@@ -1867,6 +1914,9 @@ function renderPieCharts() {
   const rangeLabel = pieRangeDays === 7 ? "近7天" : "近30天";
 
   const studyTotals = Object.fromEntries(STUDY_CATS.map((c) => [c.label, 0]));
+  for (const c of customCategories.filter((c) => c.group === "study")) {
+    studyTotals[c.label] = 0;
+  }
   let studyAll = 0;
   let sleep = 0;
   let phone = 0;
@@ -1881,7 +1931,11 @@ function renderPieCharts() {
     else other += l.minutes;
   }
 
-  const studySlices = STUDY_CATS.map((c) => ({
+  const studySliceItems = [
+    ...STUDY_CATS,
+    ...customCategories.filter((c) => c.group === "study").map((c) => ({ label: c.label })),
+  ];
+  const studySlices = studySliceItems.map((c) => ({
     label: c.label,
     minutes: studyTotals[c.label] || 0,
     color: colorForSubject(c.label),
@@ -1950,13 +2004,18 @@ function renderSubjectBars() {
     totals[l.subject] = (totals[l.subject] || 0) + l.minutes;
   }
 
-  const studyRows = STUDY_CATS.map((c) => ({ ...c, minutes: totals[c.label] || 0 }));
-  const lifeRows = LIFE_CATS.map((c) => ({ ...c, minutes: totals[c.label] || 0 }));
-  const customRows = customCategories.map((label) => ({
-    label,
-    group: "custom",
-    minutes: totals[label] || 0,
-  }));
+  const studyRows = [
+    ...STUDY_CATS.map((c) => ({ ...c, minutes: totals[c.label] || 0 })),
+    ...customCategories
+      .filter((c) => c.group === "study")
+      .map((c) => ({ label: c.label, group: "study", primary: false, minutes: totals[c.label] || 0 })),
+  ];
+  const lifeRows = [
+    ...LIFE_CATS.map((c) => ({ ...c, minutes: totals[c.label] || 0 })),
+    ...customCategories
+      .filter((c) => c.group === "life")
+      .map((c) => ({ label: c.label, group: "life", lifeKind: "other", minutes: totals[c.label] || 0 })),
+  ];
 
   const renderRows = (rows, primaryClass) => {
     const max = Math.max(...rows.map((r) => r.minutes), 1);
@@ -1975,9 +2034,6 @@ function renderSubjectBars() {
 
   let html = `<p class="stats-section-title">学习</p>${renderRows(studyRows)}`;
   html += `<p class="stats-section-title">生活</p>${renderRows(lifeRows)}`;
-  if (customRows.length) {
-    html += `<p class="stats-section-title">自定义</p>${renderRows(customRows)}`;
-  }
   document.getElementById("subjectBars").innerHTML = html;
 }
 
@@ -2050,7 +2106,10 @@ function renderSubtaskPresetList() {
 function fillPresetSubjectSelect() {
   const sel = document.getElementById("presetSubject");
   if (!sel) return;
-  const studyAndCustom = [...STUDY_CATS, ...customCategories.map((label) => ({ label }))];
+  const studyAndCustom = [
+    ...STUDY_CATS,
+    ...customCategories.filter((c) => c.group === "study").map((c) => ({ label: c.label })),
+  ];
   sel.innerHTML = studyAndCustom.map((c) => `<option value="${c.label}">${c.label}</option>`).join("");
 }
 
@@ -2756,13 +2815,41 @@ function initSleepForm() {
   });
 }
 
+function initCatGroupPick(containerId) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.querySelectorAll("[data-cat-group]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      wrap.querySelectorAll("[data-cat-group]").forEach((b) => b.classList.toggle("active", b === btn));
+    });
+  });
+}
+
 function initCustomForm() {
+  initCatGroupPick("customCatGroupPick");
   document.getElementById("customCatForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const input = document.getElementById("customCatName");
-    if (addCustomCategory(input.value)) {
+    const group = getSelectedCatGroup("customCatGroupPick", "study");
+    if (addCustomCategory(input.value, group)) {
       input.value = "";
-      setTimerSubject(customCategories[customCategories.length - 1]);
+      setTimerSubject(customCategories[customCategories.length - 1].label);
+    }
+  });
+}
+
+function initTimerCustomForm() {
+  initCatGroupPick("timerCatGroupPick");
+  const form = document.getElementById("timerCustomForm");
+  if (!form) return;
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = document.getElementById("timerCustomName");
+    const group = getSelectedCatGroup("timerCatGroupPick", "study");
+    if (addCustomCategory(input.value, group)) {
+      input.value = "";
+      setTimerSubject(customCategories[customCategories.length - 1].label);
+      showToast(`已添加「${customCategories[customCategories.length - 1].label}」`);
     }
   });
 }
@@ -2840,7 +2927,7 @@ function applyBackupData(data) {
   } else if (data && Array.isArray(data.logs)) {
     logs = data.logs;
     if (Array.isArray(data.customCategories)) {
-      customCategories = data.customCategories;
+      customCategories = normalizeCustomCategoriesList(data.customCategories);
       saveCustomCategories();
     }
     if (data.subtasksLibrary && typeof data.subtasksLibrary === "object") {
@@ -3052,6 +3139,7 @@ initMobileNav();
 initManualForm();
 initSleepForm();
 initCustomForm();
+initTimerCustomForm();
 initSubtaskPresetForm();
 initTimerSubtaskInput();
 initPomodoroForm();
