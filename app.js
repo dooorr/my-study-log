@@ -1788,10 +1788,8 @@ function renderDayTimeline() {
     const laneW = 100 / laneCols;
     const leftPct = item.lane * laneW + gapX / 2;
     const widthPct = Math.max(7, laneW - gapX);
-    const durationMin = item.endMin - item.startMin;
     const sizeClass =
-      heightPct < 3.2 ? " tl-block--tiny" : heightPct < 5.5 ? " tl-block--compact" : "";
-    const shapeClass = heightPct >= 7 || durationMin >= 90 ? " tl-block--long" : "";
+      heightPct < 3.2 ? " tl-block--tiny" : heightPct < 5.5 ? " tl-block--compact" : " tl-block--long";
     const splitClass =
       (item.isContinuation ? " tl-block--split-top" : "") + (item.continuesNext ? " tl-block--split-bottom" : "");
     const titleBase = formatEntryDisplay(item.log.subject, item.log.subtask);
@@ -1799,7 +1797,7 @@ function renderDayTimeline() {
     const title = extra ? `${titleBase} · ${extra}` : titleBase;
     const tip = item.log.note ? `${titleBase} — ${item.log.note}` : titleBase;
     const timeLabel = formatSegmentTimeRange(item.start, item.end, date);
-    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}${shapeClass}${splitClass}" data-log-id="${escapeHtml(item.log.id)}" role="button" tabindex="0" aria-label="编辑 ${escapeHtml(title)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
+    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}${splitClass}" data-log-id="${escapeHtml(item.log.id)}" role="button" tabindex="0" aria-label="编辑 ${escapeHtml(title)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
       <span class="tl-block-time">${timeLabel}${item.continuesNext ? " ↓" : item.isContinuation ? " ↑" : ""}</span>
       <span class="tl-block-label">${escapeHtml(title)}</span>
     </div>`;
