@@ -1518,17 +1518,23 @@ function renderDayTimeline() {
   }
 
   let blocksHtml = "";
+  const gapY = 0.42;
+  const gapX = 0.55;
   for (const item of timed) {
-    const topPct = ((item.startMin - dayStartMin) / spanMin) * 100;
-    const heightPct = Math.max(2.2, ((item.endMin - item.startMin) / spanMin) * 100);
+    const rawTopPct = ((item.startMin - dayStartMin) / spanMin) * 100;
+    const rawHeightPct = Math.max(2.2, ((item.endMin - item.startMin) / spanMin) * 100);
+    const topPct = rawTopPct + gapY / 2;
+    const heightPct = Math.max(1.8, rawHeightPct - gapY);
     const laneW = 100 / laneCols;
-    const leftPct = item.lane * laneW;
-    const widthPct = Math.max(8, laneW - 0.6);
+    const leftPct = item.lane * laneW + gapX / 2;
+    const widthPct = Math.max(7, laneW - gapX);
+    const sizeClass =
+      heightPct < 3.2 ? " tl-block--tiny" : heightPct < 5.5 ? " tl-block--compact" : "";
     const titleBase = formatEntryDisplay(item.log.subject, item.log.subtask);
     const extra = logExtraNote(item.log);
     const title = extra ? `${titleBase} · ${extra}` : titleBase;
     const tip = item.log.note ? `${titleBase} — ${item.log.note}` : titleBase;
-    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
+    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
       <span class="tl-block-time">${formatClockTime(item.start)}–${formatClockTime(item.end)}</span>
       <span class="tl-block-label">${escapeHtml(title)}</span>
     </div>`;
@@ -1950,7 +1956,7 @@ function initLogListDrag(list, date) {
     });
 
     handle.addEventListener("dragend", () => {
-      item.classList.remove("dragging");
+      if (dragEl) dragEl.classList.remove("dragging");
       dragEl = null;
       saveOrderFromDom();
     });
