@@ -100,8 +100,17 @@ const ENCOURAGE = {
     "✨ 你今天很卖力",
   ],
   streak: [
-    "🔥 连续打卡，势头正好",
-    "📈 别断档，习惯在养成",
+    "连续打卡，势头正好",
+    "别断档，习惯在养成",
+    "节奏稳了，保持下去",
+  ],
+  general: [
+    "慢慢来，持续就是胜利",
+    "今天也记一笔吧",
+    "专注一小段，比空想强",
+    "数分高代，一点点啃",
+    "休息够了就回到书桌",
+    "你比昨天更接近目标",
   ],
   empty: [
     "🌱 点「开始」开启今天第一笔",
@@ -115,6 +124,19 @@ const ENCOURAGE = {
     "🎯 进度 +1",
   ],
 };
+
+/** 连续学习日成就（取最高档） */
+const STREAK_BADGES = [
+  { min: 30, emoji: "👑", title: "连续学习 30 天" },
+  { min: 7, emoji: "🔥", title: "连续学习 7 天" },
+];
+
+function getStreakBadge(streak) {
+  for (const b of STREAK_BADGES) {
+    if (streak >= b.min) return { ...b, streak };
+  }
+  return null;
+}
 
 let pieRangeDays = 30;
 /** @type {number} 每日学习目标（分钟） */
@@ -366,19 +388,34 @@ function buildEncouragement() {
   const study = minutesOnDate(today, (l) => isStudyLabel(l.subject));
   const goal = dailyGoalMinutes;
   const remain = goal - study;
-  const streak = calcStreak();
   const hasTodayLogs = logs.some((l) => l.date === today);
 
   if (study >= goal) return pickRandom(ENCOURAGE.goalDone);
   if (remain > 0 && remain <= 60) return pickRandom(ENCOURAGE.goalNear);
-  if (streak >= 3) return `${pickRandom(ENCOURAGE.streak)}（已连续 ${streak} 天）`;
   if (!hasTodayLogs) return pickRandom(ENCOURAGE.empty);
-  return pickRandom(timeOfDayPool());
+  return pickRandom([...timeOfDayPool(), ...ENCOURAGE.general]);
 }
 
 function renderEncouragement() {
-  const el = document.getElementById("encourageLine");
-  if (el) el.textContent = buildEncouragement();
+  const line = document.getElementById("encourageLine");
+  const badge = document.getElementById("encourageBadge");
+  if (line) line.textContent = buildEncouragement();
+  const tier = getStreakBadge(calcStreak());
+  if (badge) {
+    if (tier) {
+      badge.hidden = false;
+      badge.setAttribute("aria-hidden", "false");
+      badge.textContent = tier.emoji;
+      badge.title = `${tier.title}（当前 ${tier.streak} 天）`;
+      badge.setAttribute("aria-label", `${tier.title}，当前连续 ${tier.streak} 天`);
+    } else {
+      badge.hidden = true;
+      badge.setAttribute("aria-hidden", "true");
+      badge.textContent = "";
+      badge.removeAttribute("title");
+      badge.removeAttribute("aria-label");
+    }
+  }
 }
 
 function showToast(msg, ms = 2600) {
@@ -1403,6 +1440,7 @@ function initMobileNav() {
       });
       localStorage.setItem(TAB_KEY, name);
       if (name === "today") renderDayTimeline();
+      if (name === "home") renderEncouragement();
       if (name === "stats") setStatsView(localStorage.getItem(STATS_VIEW_KEY) || "rank", false);
       if (name === "more") setMoreView(localStorage.getItem(MORE_VIEW_KEY) || "app", false);
     } else {
