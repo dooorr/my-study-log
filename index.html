@@ -215,7 +215,7 @@
               <button type="button" class="btn ghost sm" id="timelineNext" aria-label="后一天">›</button>
             </div>
           </div>
-          <div class="timeline-body mobile-fill">
+          <div class="timeline-body timeline-scroll mobile-fill">
             <div class="day-timeline" id="timelineLanes"></div>
             <div id="timelineUntimed"></div>
           </div>
@@ -550,6 +550,27 @@
         <span>统计</span>
       </button>
     </nav>
+  </div>
+  <div class="log-edit-modal" id="logEditModal" hidden aria-hidden="true">
+    <div class="log-edit-backdrop" id="logEditBackdrop"></div>
+    <div class="log-edit-sheet" role="dialog" aria-labelledby="logEditTitle" aria-modal="true">
+      <h3 id="logEditTitle">编辑记录</h3>
+      <p class="log-edit-meta muted" id="logEditMeta"></p>
+      <label class="log-edit-field">
+        时长（分钟）
+        <input type="number" id="logEditMinutes" min="1" max="720" />
+      </label>
+      <label class="log-edit-field">
+        备注
+        <input type="text" id="logEditNote" maxlength="120" placeholder="可选" />
+      </label>
+      <p class="muted block log-edit-hint" id="logEditHint"></p>
+      <div class="log-edit-actions">
+        <button type="button" class="btn danger" id="logEditDelete">删除</button>
+        <button type="button" class="btn" id="logEditCancel">取消</button>
+        <button type="button" class="btn primary" id="logEditSave">保存</button>
+      </div>
+    </div>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>

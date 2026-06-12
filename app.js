@@ -178,6 +178,7 @@ let calendarYear = new Date().getFullYear();
 let calendarMonth = new Date().getMonth();
 let selectedCalDate = "";
 let timelineViewDate = "";
+let editingLogId = "";
 let timerStartedAt = 0;
 let pomodoroWorkStartAt = 0;
 
@@ -1068,14 +1069,108 @@ function logExtraNote(log) {
 }
 
 function editLogNote(id) {
+  openLogEditor(id);
+}
+
+function openLogEditor(id) {
   const log = logs.find((l) => l.id === id);
   if (!log) return;
-  const cur = log.note || "";
-  const next = prompt("备注（留空则删除）", cur);
-  if (next === null) return;
-  log.note = next.trim().slice(0, 120);
+  editingLogId = id;
+  const modal = document.getElementById("logEditModal");
+  const title = document.getElementById("logEditTitle");
+  const meta = document.getElementById("logEditMeta");
+  const minEl = document.getElementById("logEditMinutes");
+  const noteEl = document.getElementById("logEditNote");
+  const hint = document.getElementById("logEditHint");
+  if (!modal || !minEl || !noteEl) return;
+
+  const range = getLogTimeRange(log);
+  const timeStr = range
+    ? `${formatClockTime(range.start)}–${formatClockTime(range.end)}`
+    : "未标注时段";
+
+  if (title) title.textContent = formatEntryDisplay(log.subject, log.subtask);
+  if (meta) meta.textContent = `${log.date} · ${timeStr} · ${formatMinutes(log.minutes)}`;
+  minEl.value = String(log.minutes);
+  noteEl.value = log.note || "";
+  if (hint) {
+    hint.textContent =
+      log.subject === "睡觉"
+        ? "睡眠时段来自入睡/起床时间；可改时长和备注。"
+        : log.startAt
+          ? "保存后会按原开始时间重算结束时间。"
+          : "这条记录没有开始时间，只改时长和备注。";
+  }
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+  noteEl.focus();
+}
+
+function closeLogEditor() {
+  const modal = document.getElementById("logEditModal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+  editingLogId = "";
+}
+
+function saveLogEditor() {
+  const log = logs.find((l) => l.id === editingLogId);
+  if (!log) return closeLogEditor();
+  const minEl = document.getElementById("logEditMinutes");
+  const noteEl = document.getElementById("logEditNote");
+  const minutes = Math.min(720, Math.max(1, Math.round(Number(minEl?.value) || log.minutes)));
+  const noteText = (noteEl?.value || "").trim().slice(0, 120);
+
+  log.minutes = minutes;
+  log.note = noteText;
+
+  if (log.startAt) {
+    const start = new Date(log.startAt);
+    if (!Number.isNaN(start.getTime())) {
+      const end = new Date(start.getTime() + minutes * 60000);
+      log.endAt = end.toISOString();
+    }
+  }
+
   saveLogs();
+  closeLogEditor();
   renderAll();
+  showToast("✓ 已保存");
+}
+
+function deleteLogEditor() {
+  const id = editingLogId;
+  if (!id) return;
+  if (!confirm("确定删除这条记录？")) return;
+  logs = logs.filter((l) => l.id !== id);
+  removeLogOrderId(id);
+  saveLogs();
+  closeLogEditor();
+  renderAll();
+  showToast("已删除");
+}
+
+function bindTimelineBlocks() {
+  document.querySelectorAll(".tl-block[data-log-id]").forEach((el) => {
+    el.addEventListener("click", () => openLogEditor(el.dataset.logId));
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openLogEditor(el.dataset.logId);
+      }
+    });
+  });
+  document.querySelectorAll(".tl-untimed-item[data-log-id]").forEach((el) => {
+    el.addEventListener("click", () => openLogEditor(el.dataset.logId));
+  });
+}
+
+function initLogEditModal() {
+  document.getElementById("logEditSave")?.addEventListener("click", saveLogEditor);
+  document.getElementById("logEditCancel")?.addEventListener("click", closeLogEditor);
+  document.getElementById("logEditDelete")?.addEventListener("click", deleteLogEditor);
+  document.getElementById("logEditBackdrop")?.addEventListener("click", closeLogEditor);
 }
 
 function updateTimerHint() {
@@ -1631,7 +1726,7 @@ function renderDayTimeline() {
     const extra = logExtraNote(item.log);
     const title = extra ? `${titleBase} · ${extra}` : titleBase;
     const tip = item.log.note ? `${titleBase} — ${item.log.note}` : titleBase;
-    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
+    blocksHtml += `<div class="tl-block ${timelineBlockClass(item.log)}${sizeClass}" data-log-id="${escapeHtml(item.log.id)}" role="button" tabindex="0" aria-label="编辑 ${escapeHtml(title)}" style="top:${topPct}%;height:${heightPct}%;left:${leftPct}%;width:${widthPct}%" title="${escapeHtml(tip)}">
       <span class="tl-block-time">${formatClockTime(item.start)}–${formatClockTime(item.end)}</span>
       <span class="tl-block-label">${escapeHtml(title)}</span>
     </div>`;
@@ -1639,18 +1734,20 @@ function renderDayTimeline() {
 
   lanesEl.innerHTML = `<div class="tl-hours">${hoursHtml}</div>
     <div class="tl-track" data-lanes="${laneCols}">${blocksHtml}</div>`;
+  bindTimelineBlocks();
 
   if (untimedEl) {
     if (!untimed.length) {
       untimedEl.innerHTML = "";
     } else {
-      untimedEl.innerHTML = `<p class="muted block">未标注时段（补录时填开始时间可显示在时间轴上）</p>
+      untimedEl.innerHTML = `<p class="muted block mobile-hide-hint">未标注时段 · 点条目可编辑</p>
         <ul class="tl-untimed-list">${untimed
           .map(
             (l) =>
-              `<li><span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryDisplay(l.subject, l.subtask))}</span> · ${formatMinutes(l.minutes)}</li>`
+              `<li class="tl-untimed-item" data-log-id="${escapeHtml(l.id)}" role="button" tabindex="0"><span class="${tagClassFor(l.subject)}">${escapeHtml(formatEntryDisplay(l.subject, l.subtask))}</span> · ${formatMinutes(l.minutes)}</li>`
           )
           .join("")}</ul>`;
+      bindTimelineBlocks();
     }
   }
 }
@@ -2947,6 +3044,7 @@ updateSubtaskDatalists();
 initPieRange();
 initCalendar();
 initTimeline();
+initLogEditModal();
 initTodaySubnav();
 initStatsSubnav();
 initMoreSubnav();
