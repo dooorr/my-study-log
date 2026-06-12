@@ -55,6 +55,8 @@ const PIE_COLORS = {
 const TIMELINE_DAY_START = 0;
 const TIMELINE_DAY_END = 24;
 const TODAY_VIEW_KEY = "kaoyan_today_view_v1";
+const STATS_VIEW_KEY = "kaoyan_stats_view_v1";
+const MORE_VIEW_KEY = "kaoyan_more_view_v1";
 
 const SUBJECT_EMOJI = {
   数分: "📐",
@@ -1211,15 +1213,21 @@ function initMobileNav() {
       });
       localStorage.setItem(TAB_KEY, name);
       if (name === "today") renderDayTimeline();
+      if (name === "stats") setStatsView(localStorage.getItem(STATS_VIEW_KEY) || "rank", false);
+      if (name === "more") setMoreView(localStorage.getItem(MORE_VIEW_KEY) || "app", false);
     } else {
       panels.forEach((panel) => panel.classList.add("panel-active"));
     }
   }
 
-  function navigateToTab(tab, scrollId, todayView) {
+  function navigateToTab(tab, scrollId, todayView, statsView, moreView) {
     applyTab(tab);
     if (todayView) setTodayView(todayView);
-    if (scrollId) {
+    if (statsView) setStatsView(statsView);
+    else if (tab === "stats" && scrollId === "leaderboardSection") setStatsView("rank");
+    if (moreView) setMoreView(moreView);
+    else if (tab === "more" && scrollId === "phaseSettingsSection") setMoreView("phase");
+    if (scrollId && !isMobileLayout()) {
       setTimeout(() => {
         const el = document.getElementById(scrollId);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1235,7 +1243,13 @@ function initMobileNav() {
 
   document.querySelectorAll("[data-goto]").forEach((btn) => {
     btn.addEventListener("click", () =>
-      navigateToTab(btn.dataset.goto, btn.dataset.scroll || "", btn.dataset.todayView || "")
+      navigateToTab(
+        btn.dataset.goto,
+        btn.dataset.scroll || "",
+        btn.dataset.todayView || "",
+        btn.dataset.statsView || "",
+        btn.dataset.moreView || ""
+      )
     );
   });
 
@@ -1255,11 +1269,47 @@ function setTodayView(view, save = true) {
   if (name === "timeline") renderDayTimeline();
 }
 
+function setStatsView(view, save = true) {
+  const name = view || "rank";
+  document.querySelectorAll(".stats-subnav-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.statsView === name);
+  });
+  document.querySelectorAll(".stats-pane").forEach((el) => {
+    el.classList.toggle("active", el.dataset.statsView === name);
+  });
+  if (save) localStorage.setItem(STATS_VIEW_KEY, name);
+}
+
+function setMoreView(view, save = true) {
+  const name = view || "app";
+  document.querySelectorAll(".more-subnav-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.moreView === name);
+  });
+  document.querySelectorAll(".more-pane").forEach((el) => {
+    el.classList.toggle("active", el.dataset.moreView === name);
+  });
+  if (save) localStorage.setItem(MORE_VIEW_KEY, name);
+}
+
 function initTodaySubnav() {
   document.querySelectorAll(".today-subnav-btn").forEach((btn) => {
     btn.addEventListener("click", () => setTodayView(btn.dataset.todayView));
   });
   setTodayView(localStorage.getItem(TODAY_VIEW_KEY) || "log", false);
+}
+
+function initStatsSubnav() {
+  document.querySelectorAll(".stats-subnav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setStatsView(btn.dataset.statsView));
+  });
+  setStatsView(localStorage.getItem(STATS_VIEW_KEY) || "rank", false);
+}
+
+function initMoreSubnav() {
+  document.querySelectorAll(".more-subnav-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setMoreView(btn.dataset.moreView));
+  });
+  setMoreView(localStorage.getItem(MORE_VIEW_KEY) || "app", false);
 }
 
 function studyMinutesByDate() {
@@ -2876,6 +2926,8 @@ initPieRange();
 initCalendar();
 initTimeline();
 initTodaySubnav();
+initStatsSubnav();
+initMoreSubnav();
 initMobileNav();
 initManualForm();
 initSleepForm();

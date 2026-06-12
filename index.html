@@ -47,7 +47,7 @@
     </header>
 
     <main class="grid" id="mainGrid">
-      <section class="card span-2 dashboard-home" data-panel="home" aria-label="数据看板">
+      <section class="card span-2 dashboard-home mobile-home" data-panel="home" aria-label="数据看板">
         <p class="encourage-line" id="encourageLine" aria-live="polite"></p>
 
         <div class="dash-hero">
@@ -140,12 +140,12 @@
         <div class="dash-leaderboard">
           <div class="card-head">
             <h2>🏆 学习日排行</h2>
-            <button type="button" class="btn ghost sm" data-goto="stats" data-scroll="leaderboardSection">全部</button>
+            <button type="button" class="btn ghost sm" data-goto="stats" data-stats-view="rank">全部</button>
           </div>
           <div id="dashLeaderboard"></div>
         </div>
       </section>
-      <section class="card timer-card" data-panel="timer">
+      <section class="card timer-card mobile-timer" data-panel="timer">
         <h2>⏱ 专注计时</h2>
         <div class="timer-mode-row">
           <button type="button" class="chip mode-chip active" data-mode="normal">普通计时</button>
@@ -182,13 +182,13 @@
       </section>
 
       <section class="card span-2 today-hub" data-panel="today" id="todayHub">
-        <nav class="today-subnav" aria-label="今日分页">
-          <button type="button" class="today-subnav-btn active" data-today-view="log">记录</button>
-          <button type="button" class="today-subnav-btn" data-today-view="timeline">日程</button>
-          <button type="button" class="today-subnav-btn" data-today-view="add">记一笔</button>
+        <nav class="panel-subnav today-subnav" aria-label="今日分页">
+          <button type="button" class="panel-subnav-btn today-subnav-btn active" data-today-view="log">记录</button>
+          <button type="button" class="panel-subnav-btn today-subnav-btn" data-today-view="timeline">日程</button>
+          <button type="button" class="panel-subnav-btn today-subnav-btn" data-today-view="add">记一笔</button>
         </nav>
 
-        <div class="today-view active" data-today-view="log">
+        <div class="hub-pane today-view active" data-today-view="log">
           <div class="card-head">
             <h2>📋 今日概览</h2>
           </div>
@@ -197,16 +197,16 @@
             <div class="mini-stat sleep"><span class="label">😴 睡觉</span><strong id="todaySleep">—</strong></div>
             <div class="mini-stat phone"><span class="label">📱 玩手机</span><strong id="todayPhone">—</strong></div>
           </div>
-          <div class="card-head" style="margin-top:1rem">
+          <div class="card-head" style="margin-top:0.65rem">
             <h2>📝 今日记录</h2>
             <button type="button" class="btn ghost sm" id="clearToday">清空今日</button>
           </div>
-          <p class="muted block drag-hint">按结束时间从新到旧；早起记的睡眠在下方。拖 ⋮⋮ 可手动调序。</p>
-          <ul class="log-list" id="todayList"></ul>
+          <p class="muted block drag-hint mobile-hide-hint">按结束时间从新到旧；早起记的睡眠在下方。拖 ⋮⋮ 可手动调序。</p>
+          <ul class="log-list mobile-fill-scroll" id="todayList"></ul>
           <p class="empty" id="todayEmpty">今天还没有记录。</p>
         </div>
 
-        <div class="today-view" data-today-view="timeline" id="timelineSection">
+        <div class="hub-pane today-view mobile-timeline-pane" data-today-view="timeline" id="timelineSection">
           <div class="card-head">
             <h2>🕐 一日时间轴</h2>
             <div class="cal-nav">
@@ -215,12 +215,13 @@
               <button type="button" class="btn ghost sm" id="timelineNext" aria-label="后一天">›</button>
             </div>
           </div>
-          <p class="muted block">0:00–24:00 完整一天；计时结束会自动记录时段。</p>
-          <div class="day-timeline" id="timelineLanes"></div>
-          <div id="timelineUntimed"></div>
+          <div class="timeline-body mobile-fill">
+            <div class="day-timeline" id="timelineLanes"></div>
+            <div id="timelineUntimed"></div>
+          </div>
         </div>
 
-        <div class="today-view" data-today-view="add">
+        <div class="hub-pane today-view mobile-form-pane" data-today-view="add">
           <h2>😴 记睡眠</h2>
           <form id="sleepForm" class="form sleep-form">
             <label>
@@ -274,212 +275,260 @@
         </div>
       </section>
 
-      <section class="card span-2" data-panel="stats" id="leaderboardSection">
-        <div class="card-head">
-          <h2>🏆 学习日排行榜</h2>
-          <span class="muted" id="weekCompareLabel">近 7 天对比</span>
-        </div>
-        <div class="week-compare" id="weekCompare"></div>
-        <div class="self-records" id="selfRecords"></div>
-        <div class="leaderboard-table" id="selfLeaderboardFull"></div>
-      </section>
+      <section class="card span-2 stats-hub mobile-hub" data-panel="stats" id="statsHub">
+        <nav class="panel-subnav stats-subnav" aria-label="统计分页">
+          <button type="button" class="panel-subnav-btn stats-subnav-btn active" data-stats-view="rank">🏆</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="progress">📊</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="phase">📆</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="cal">📅</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="week">7天</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="pie">🥧</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="bars">📈</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="subtask">📌</button>
+        </nav>
 
-      <section class="card span-2" data-panel="stats">
-        <div class="card-head">
-          <h2>📊 科目复习进度</h2>
-          <span class="muted" id="statsProgressHint">累计学习时长 / 目标</span>
-        </div>
-        <div id="statsSubjectProgress"></div>
-      </section>
-
-      <section class="card span-2" data-panel="stats" id="phaseStatsSection">
-        <div class="card-head">
-          <h2>📆 阶段统计</h2>
-          <button type="button" class="btn ghost sm" data-goto="more" data-scroll="phaseSettingsSection">设置阶段</button>
-        </div>
-        <p class="muted block">按复习阶段汇总学习时长，看各阶段数分/高代分布。</p>
-        <div id="phaseStatsList"></div>
-      </section>
-
-      <section class="card span-2" data-panel="stats">
-        <div class="card-head">
-          <h2>📅 学习日历</h2>
-          <div class="cal-nav">
-            <button type="button" class="btn ghost sm" id="calPrev" aria-label="上个月">‹</button>
-            <span class="cal-title" id="calTitle">2026年6月</span>
-            <button type="button" class="btn ghost sm" id="calNext" aria-label="下个月">›</button>
+        <div class="hub-pane stats-pane active" data-stats-view="rank" id="leaderboardSection">
+          <div class="card-head">
+            <h2>🏆 学习日排行榜</h2>
+            <span class="muted" id="weekCompareLabel">近 7 天对比</span>
+          </div>
+          <div class="mobile-fill-scroll">
+            <div class="week-compare" id="weekCompare"></div>
+            <div class="self-records" id="selfRecords"></div>
+            <div class="leaderboard-table" id="selfLeaderboardFull"></div>
           </div>
         </div>
-        <p class="focus-note">颜色越深学习越多；点某天看详情。无法与系统日历自动同步，可导出 ICS 导入。</p>
-        <div class="cal-weekdays">
-          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
-        </div>
-        <div class="cal-grid" id="calGrid"></div>
-        <div class="cal-day-detail" id="calDayDetail"></div>
-      </section>
 
-      <section class="card span-2" data-panel="stats">
-        <div class="card-head">
-          <h2>📊 近 7 天学习</h2>
-          <span class="muted" id="weekTotal">本周学习 0h</span>
+        <div class="hub-pane stats-pane" data-stats-view="progress">
+          <div class="card-head">
+            <h2>📊 科目复习进度</h2>
+            <span class="muted" id="statsProgressHint">累计学习时长 / 目标</span>
+          </div>
+          <div class="mobile-fill-scroll" id="statsSubjectProgress"></div>
         </div>
-        <div class="chart" id="weekChart"></div>
-      </section>
 
-      <section class="card span-2" data-panel="stats">
-        <div class="card-head">
-          <h2>🥧 时间占比</h2>
-          <div class="range-chips" id="pieRangeChips">
-            <button type="button" class="chip range-chip" data-range="7">7天</button>
-            <button type="button" class="chip range-chip active" data-range="30">30天</button>
+        <div class="hub-pane stats-pane" data-stats-view="phase" id="phaseStatsSection">
+          <div class="card-head">
+            <h2>📆 阶段统计</h2>
+            <button type="button" class="btn ghost sm" data-goto="more" data-more-view="phase">设置阶段</button>
+          </div>
+          <p class="muted block mobile-hide-hint">按复习阶段汇总学习时长，看各阶段数分/高代分布。</p>
+          <div class="mobile-fill-scroll" id="phaseStatsList"></div>
+        </div>
+
+        <div class="hub-pane stats-pane mobile-cal-pane" data-stats-view="cal">
+          <div class="card-head">
+            <h2>📅 学习日历</h2>
+            <div class="cal-nav">
+              <button type="button" class="btn ghost sm" id="calPrev" aria-label="上个月">‹</button>
+              <span class="cal-title" id="calTitle">2026年6月</span>
+              <button type="button" class="btn ghost sm" id="calNext" aria-label="下个月">›</button>
+            </div>
+          </div>
+          <div class="mobile-fill-scroll">
+            <p class="focus-note mobile-hide-hint">颜色越深学习越多；点某天看详情。</p>
+            <div class="cal-weekdays">
+              <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+            <div class="cal-day-detail" id="calDayDetail"></div>
           </div>
         </div>
-        <div class="pie-grid" id="pieGrid"></div>
+
+        <div class="hub-pane stats-pane" data-stats-view="week">
+          <div class="card-head">
+            <h2>📊 近 7 天学习</h2>
+            <span class="muted" id="weekTotal">本周学习 0h</span>
+          </div>
+          <div class="chart mobile-fill" id="weekChart"></div>
+        </div>
+
+        <div class="hub-pane stats-pane" data-stats-view="pie">
+          <div class="card-head">
+            <h2>🥧 时间占比</h2>
+            <div class="range-chips" id="pieRangeChips">
+              <button type="button" class="chip range-chip" data-range="7">7天</button>
+              <button type="button" class="chip range-chip active" data-range="30">30天</button>
+            </div>
+          </div>
+          <div class="mobile-fill-scroll pie-grid" id="pieGrid"></div>
+        </div>
+
+        <div class="hub-pane stats-pane" data-stats-view="bars">
+          <div class="card-head">
+            <h2>📈 近 30 天分布</h2>
+          </div>
+          <div class="mobile-fill-scroll subject-bars" id="subjectBars"></div>
+        </div>
+
+        <div class="hub-pane stats-pane" data-stats-view="subtask">
+          <div class="card-head">
+            <h2>📌 子任务统计</h2>
+          </div>
+          <p class="focus-note mobile-hide-hint">有子任务的记录会显示为「数分 · 4.2」这种格式。</p>
+          <div class="mobile-fill-scroll subject-bars" id="subtaskBars"></div>
+        </div>
       </section>
 
-      <section class="card span-2" data-panel="stats">
-        <div class="card-head">
-          <h2>📈 近 30 天分布</h2>
-        </div>
-        <div class="subject-bars" id="subjectBars"></div>
-      </section>
+      <section class="card span-2 more-hub mobile-hub tools" data-panel="more" id="moreHub">
+        <nav class="panel-subnav more-subnav" aria-label="设置分页">
+          <button type="button" class="panel-subnav-btn more-subnav-btn active" data-more-view="app">📲</button>
+          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="look">🎨</button>
+          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="countdown">📅</button>
+          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="goal">🎯</button>
+          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="phase">📆</button>
+          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="timer">🍅</button>
+          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="cats">🏷</button>
+          <button type="button" class="panel-subnav-btn more-subnav-btn" data-more-view="backup">💾</button>
+        </nav>
 
-      <section class="card span-2" data-panel="stats">
-        <div class="card-head">
-          <h2>📌 子任务统计（近 30 天学习）</h2>
-        </div>
-        <p class="focus-note">有子任务的记录会显示为「数分 · 4.2」这种格式。</p>
-        <div class="subject-bars" id="subtaskBars"></div>
-      </section>
-
-      <section class="card span-2 tools" data-panel="more">
-        <h2>📲 添加到主屏幕</h2>
-        <p class="muted block">像 App 一样从桌面打开。选项在<strong>浏览器</strong>里，本页没有按钮。</p>
-        <div class="home-screen-steps">
-          <p><strong>iPhone（必须用 Safari）</strong></p>
-          <ol>
-            <li>用 Safari 打开本页（微信里点链接 → 右下角「…」→ 在 Safari 中打开）</li>
-            <li>点底部<strong>分享</strong>（方框带向上箭头）</li>
-            <li>向下滑，点<strong>添加到主屏幕</strong></li>
-            <li>点右上角<strong>添加</strong></li>
-          </ol>
-          <p><strong>安卓（Chrome）</strong></p>
-          <ol>
-            <li>用 Chrome 打开本页</li>
-            <li>点右上角<strong>⋮</strong>菜单</li>
-            <li>选<strong>添加到主屏幕</strong>或<strong>安装应用</strong></li>
-          </ol>
+        <div class="hub-pane more-pane active" data-more-view="app">
+          <h2>📲 添加到主屏幕</h2>
+          <div class="mobile-fill-scroll home-screen-steps">
+            <p class="muted block">像 App 一样从桌面打开。选项在<strong>浏览器</strong>里。</p>
+            <p><strong>iPhone（必须用 Safari）</strong></p>
+            <ol>
+              <li>用 Safari 打开本页（微信里点链接 → 右下角「…」→ 在 Safari 中打开）</li>
+              <li>点底部<strong>分享</strong>（方框带向上箭头）</li>
+              <li>向下滑，点<strong>添加到主屏幕</strong></li>
+              <li>点右上角<strong>添加</strong></li>
+            </ol>
+            <p><strong>安卓（Chrome）</strong></p>
+            <ol>
+              <li>用 Chrome 打开本页</li>
+              <li>点右上角<strong>⋮</strong>菜单</li>
+              <li>选<strong>添加到主屏幕</strong>或<strong>安装应用</strong></li>
+            </ol>
+          </div>
         </div>
 
-        <h2 style="margin-top:1.25rem">🎨</h2>
-        <p class="muted block">右上角 🌙 可循环切换。</p>
-        <div class="skin-chips" id="skinChips">
-          <button type="button" class="chip skin-chip active" data-skin="light" aria-label="默认主题">☀️</button>
-          <button type="button" class="chip skin-chip" data-skin="bi" aria-label="Bi 主题">🎨</button>
-          <button type="button" class="chip skin-chip" data-skin="ocean" aria-label="海洋主题">🌊</button>
-          <button type="button" class="chip skin-chip" data-skin="forest" aria-label="森林主题">🌲</button>
-          <button type="button" class="chip skin-chip" data-skin="dark" aria-label="深色主题">🌙</button>
+        <div class="hub-pane more-pane" data-more-view="look">
+          <h2>🎨</h2>
+          <p class="muted block">右上角 🌙 可循环切换。</p>
+          <div class="skin-chips" id="skinChips">
+            <button type="button" class="chip skin-chip active" data-skin="light" aria-label="默认主题">☀️</button>
+            <button type="button" class="chip skin-chip" data-skin="bi" aria-label="Bi 主题">🎨</button>
+            <button type="button" class="chip skin-chip" data-skin="ocean" aria-label="海洋主题">🌊</button>
+            <button type="button" class="chip skin-chip" data-skin="forest" aria-label="森林主题">🌲</button>
+            <button type="button" class="chip skin-chip" data-skin="dark" aria-label="深色主题">🌙</button>
+          </div>
         </div>
 
-        <h2 style="margin-top:1.25rem">📅 倒数日</h2>
-        <p class="muted block">显示在首页顶部，默认目标为当年 12 月下旬初试（可改）。</p>
-        <form id="countdownForm" class="form countdown-form">
-          <label>
-            事件名称
-            <input type="text" id="countdownLabelInput" maxlength="20" value="考研初试" required />
-          </label>
-          <label>
-            目标日期
-            <input type="date" id="countdownDateInput" required />
-          </label>
-          <label class="checkbox-label full">
-            <input type="checkbox" id="countdownEnabled" checked />
-            在首页显示倒数
-          </label>
-          <button type="submit" class="btn primary full">保存</button>
-        </form>
-
-        <h2 style="margin-top:1.25rem" id="phaseSettingsSection">📆 复习阶段</h2>
-        <p class="muted block">自定义阶段起止日期，用于阶段统计。最多 4 个，按时间先后排列。</p>
-        <ul class="phase-edit-list" id="phaseEditList"></ul>
-        <form id="phaseAddForm" class="form phase-add-form">
-          <label>
-            阶段名称
-            <input type="text" id="phaseNameInput" placeholder="例如：强化阶段" maxlength="16" required />
-          </label>
-          <label>
-            开始日期
-            <input type="date" id="phaseStartInput" required />
-          </label>
-          <label>
-            结束日期
-            <input type="date" id="phaseEndInput" required />
-          </label>
-          <button type="submit" class="btn primary full">添加阶段</button>
-        </form>
-
-        <h2 style="margin-top:1.25rem">📊 科目进度目标</h2>
-        <p class="muted block">各科计划总学习时长（小时），用于首页与统计页的进度条。填 0 表示不显示该科。</p>
-        <form id="subjectGoalsForm" class="form subject-goals-form"></form>
-
-        <h2 style="margin-top:1.25rem">🎯 每日学习目标</h2>
-        <p class="muted block">只统计「学习」类科目（数分、高代、英语、政治等），不含睡觉和玩手机。</p>
-        <form id="dailyGoalForm" class="goal-form">
-          <label>
-            每天学习（小时）
-            <input type="number" id="dailyGoalHours" min="1" max="16" step="0.5" value="8" required />
-          </label>
-          <button type="submit" class="btn primary">保存目标</button>
-        </form>
-
-        <h2 style="margin-top:1.25rem">🍅 番茄钟设置</h2>
-        <p class="muted block">专注结束自动记入学习时长；休息不计入。默认 25 + 5 分钟。</p>
-        <form id="pomodoroForm" class="form pomodoro-form">
-          <label>
-            专注（分钟）
-            <input type="number" id="pomodoroWorkMin" min="5" max="90" step="5" value="25" required />
-          </label>
-          <label>
-            休息（分钟）
-            <input type="number" id="pomodoroBreakMin" min="1" max="30" step="1" value="5" required />
-          </label>
-          <button type="submit" class="btn primary full">保存</button>
-        </form>
-
-        <h2 style="margin-top:1.25rem">🏷 自定义类别</h2>
-        <p class="muted block">例如：运动、吃饭、通勤。添加后可计时或手动记。</p>
-        <form id="customCatForm" class="custom-add-row">
-          <input type="text" id="customCatName" placeholder="输入名称，最多 12 字" maxlength="12" required />
-          <button type="submit" class="btn primary">添加</button>
-        </form>
-        <ul class="custom-cat-list" id="customCatList"></ul>
-
-        <h2 style="margin-top:1.25rem">📌 子任务预设</h2>
-        <p class="muted block">给科目加常用子任务，计时时可一键点选。例如数分 → 4.2</p>
-        <form id="subtaskPresetForm" class="form subtask-preset-form">
-          <label>
-            科目
-            <select id="presetSubject"></select>
-          </label>
-          <label>
-            子任务名
-            <input type="text" id="presetSubtaskName" placeholder="例如：4.2" maxlength="30" required />
-          </label>
-          <button type="submit" class="btn primary full">添加预设</button>
-        </form>
-        <ul class="custom-cat-list" id="subtaskPresetList"></ul>
-
-        <h2 style="margin-top:1.25rem">💾 数据备份</h2>
-        <p class="muted block">数据存在本机浏览器。换设备前请导出。</p>
-        <div class="btn-row">
-          <button type="button" class="btn" id="exportBtn">导出 JSON</button>
-          <button type="button" class="btn" id="exportIcsBtn">导出日历 ICS</button>
-          <label class="btn file-btn">
-            导入备份
-            <input type="file" id="importFile" accept="application/json" hidden />
-          </label>
+        <div class="hub-pane more-pane" data-more-view="countdown">
+          <h2>📅 倒数日</h2>
+          <p class="muted block mobile-hide-hint">显示在首页顶部，默认目标为当年 12 月下旬初试（可改）。</p>
+          <form id="countdownForm" class="form countdown-form mobile-fill-scroll">
+            <label>
+              事件名称
+              <input type="text" id="countdownLabelInput" maxlength="20" value="考研初试" required />
+            </label>
+            <label>
+              目标日期
+              <input type="date" id="countdownDateInput" required />
+            </label>
+            <label class="checkbox-label full">
+              <input type="checkbox" id="countdownEnabled" checked />
+              在首页显示倒数
+            </label>
+            <button type="submit" class="btn primary full">保存</button>
+          </form>
         </div>
-        <p class="muted block" style="margin-top:0.65rem">ICS：iPhone「文件」里打开 → 分享 → 日历。需手动重新导出，不会自动同步。</p>
+
+        <div class="hub-pane more-pane" data-more-view="goal">
+          <h2>🎯 学习目标</h2>
+          <div class="mobile-fill-scroll">
+            <h3 class="more-pane-sub">每日目标</h3>
+            <p class="muted block mobile-hide-hint">只统计学习类科目，不含睡觉和玩手机。</p>
+            <form id="dailyGoalForm" class="goal-form">
+              <label>
+                每天学习（小时）
+                <input type="number" id="dailyGoalHours" min="1" max="16" step="0.5" value="8" required />
+              </label>
+              <button type="submit" class="btn primary">保存目标</button>
+            </form>
+            <h3 class="more-pane-sub">科目进度目标</h3>
+            <p class="muted block mobile-hide-hint">填 0 表示不显示该科进度条。</p>
+            <form id="subjectGoalsForm" class="form subject-goals-form"></form>
+          </div>
+        </div>
+
+        <div class="hub-pane more-pane" data-more-view="phase" id="phaseSettingsSection">
+          <h2>📆 复习阶段</h2>
+          <p class="muted block mobile-hide-hint">自定义阶段起止日期，用于阶段统计。最多 4 个。</p>
+          <div class="mobile-fill-scroll">
+            <ul class="phase-edit-list" id="phaseEditList"></ul>
+            <form id="phaseAddForm" class="form phase-add-form">
+              <label>
+                阶段名称
+                <input type="text" id="phaseNameInput" placeholder="例如：强化阶段" maxlength="16" required />
+              </label>
+              <label>
+                开始日期
+                <input type="date" id="phaseStartInput" required />
+              </label>
+              <label>
+                结束日期
+                <input type="date" id="phaseEndInput" required />
+              </label>
+              <button type="submit" class="btn primary full">添加阶段</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="hub-pane more-pane" data-more-view="timer">
+          <h2>🍅 番茄钟设置</h2>
+          <p class="muted block mobile-hide-hint">专注结束自动记入学习时长；休息不计入。</p>
+          <form id="pomodoroForm" class="form pomodoro-form">
+            <label>
+              专注（分钟）
+              <input type="number" id="pomodoroWorkMin" min="5" max="90" step="5" value="25" required />
+            </label>
+            <label>
+              休息（分钟）
+              <input type="number" id="pomodoroBreakMin" min="1" max="30" step="1" value="5" required />
+            </label>
+            <button type="submit" class="btn primary full">保存</button>
+          </form>
+        </div>
+
+        <div class="hub-pane more-pane" data-more-view="cats">
+          <h2>🏷 类别与子任务</h2>
+          <div class="mobile-fill-scroll">
+            <h3 class="more-pane-sub">自定义类别</h3>
+            <form id="customCatForm" class="custom-add-row">
+              <input type="text" id="customCatName" placeholder="输入名称，最多 12 字" maxlength="12" required />
+              <button type="submit" class="btn primary">添加</button>
+            </form>
+            <ul class="custom-cat-list" id="customCatList"></ul>
+            <h3 class="more-pane-sub">子任务预设</h3>
+            <form id="subtaskPresetForm" class="form subtask-preset-form">
+              <label>
+                科目
+                <select id="presetSubject"></select>
+              </label>
+              <label>
+                子任务名
+                <input type="text" id="presetSubtaskName" placeholder="例如：4.2" maxlength="30" required />
+              </label>
+              <button type="submit" class="btn primary full">添加预设</button>
+            </form>
+            <ul class="custom-cat-list" id="subtaskPresetList"></ul>
+          </div>
+        </div>
+
+        <div class="hub-pane more-pane" data-more-view="backup">
+          <h2>💾 数据备份</h2>
+          <p class="muted block">数据存在本机浏览器。换设备前请导出。</p>
+          <div class="btn-row">
+            <button type="button" class="btn" id="exportBtn">导出 JSON</button>
+            <button type="button" class="btn" id="exportIcsBtn">导出日历 ICS</button>
+            <label class="btn file-btn">
+              导入备份
+              <input type="file" id="importFile" accept="application/json" hidden />
+            </label>
+          </div>
+          <p class="muted block mobile-hide-hint" style="margin-top:0.65rem">ICS：iPhone「文件」里打开 → 分享 → 日历。</p>
+        </div>
       </section>
     </main>
 

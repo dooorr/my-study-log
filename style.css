@@ -1689,36 +1689,63 @@ input[type="text"] {
   --tl-day-height: 28rem;
 }
 
-.today-view[data-today-view="timeline"] .day-timeline {
-  --tl-day-height: min(62vh, 34rem);
-}
-
-.today-subnav {
+.panel-subnav {
   display: none;
   gap: 0.35rem;
   margin-bottom: 0.85rem;
   padding: 0.25rem;
   background: var(--elevated);
   border-radius: 12px;
+  flex-shrink: 0;
 }
 
-.today-subnav-btn {
+.panel-subnav-btn {
   flex: 1;
+  min-width: 2.1rem;
   border: none;
   background: transparent;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  padding: 0.55rem 0.35rem;
+  padding: 0.5rem 0.35rem;
   border-radius: 9px;
   cursor: pointer;
   touch-action: manipulation;
+  white-space: nowrap;
 }
 
-.today-subnav-btn.active {
+.panel-subnav-btn.active {
   background: var(--card);
   color: var(--accent);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.hub-pane {
+  min-height: 0;
+}
+
+.more-pane-sub {
+  margin: 0.85rem 0 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.more-pane-sub:first-child {
+  margin-top: 0;
+}
+
+.stats-hub .stats-pane + .stats-pane,
+.more-hub .more-pane + .more-pane {
+  margin-top: 1.35rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--line);
+}
+
+.today-hub .today-view + .today-view {
+  margin-top: 1.35rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--line);
 }
 
 .tl-hours {
@@ -2150,19 +2177,42 @@ input[type="text"] {
   display: block;
 }
 
-/* —— 手机版 —— */
+/* —— 手机版 · 全屏一页 —— */
 @media (max-width: 720px) {
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+  }
+
   .app {
-    padding: 0.85rem 0.85rem calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 1rem);
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    max-width: none;
+    margin: 0;
+    padding: max(0.45rem, env(safe-area-inset-top)) 0.7rem 0;
   }
 
   .header {
-    margin-bottom: 0.85rem;
+    flex-shrink: 0;
+    margin-bottom: 0.4rem;
     align-items: center;
   }
 
   h1 {
-    font-size: 1.35rem;
+    font-size: 1.15rem;
   }
 
   .subtitle {
@@ -2178,9 +2228,20 @@ input[type="text"] {
     font-size: 1rem;
   }
 
+  main.grid,
+  #mainGrid {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  }
+
   .grid {
     grid-template-columns: 1fr;
-    gap: 0.85rem;
+    gap: 0;
   }
 
   .span-2 {
@@ -2189,10 +2250,226 @@ input[type="text"] {
 
   .grid .card {
     display: none;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0.55rem 0.65rem;
   }
 
   .grid .card.panel-active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-hub.panel-active {
+    padding-top: 0.5rem;
+  }
+
+  .panel-subnav {
+    display: flex;
+    margin-bottom: 0.45rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .panel-subnav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hub-pane {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    flex-direction: column;
+  }
+
+  .hub-pane.active,
+  .today-view.active {
+    display: flex;
+  }
+
+  .stats-hub .stats-pane + .stats-pane,
+  .more-hub .more-pane + .more-pane {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .mobile-fill,
+  .mobile-fill-scroll,
+  .timeline-body.mobile-fill {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .mobile-fill-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-hide-hint {
+    display: none;
+  }
+
+  /* 首页 · 一屏概览 */
+  .mobile-home.panel-active {
+    justify-content: flex-start;
+  }
+
+  .mobile-home .encourage-line,
+  .mobile-home .subject-progress-banner,
+  .mobile-home .dash-phase,
+  .mobile-home .dash-leaderboard,
+  .mobile-home .countdown-banner {
+    display: none;
+  }
+
+  .mobile-home .dash-hero {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.35rem;
+    margin-bottom: 0.45rem;
+  }
+
+  .mobile-home .dash-hero-stat {
+    padding: 0.45rem 0.35rem;
+  }
+
+  .mobile-home .dash-hero-stat strong {
+    font-size: 1rem;
+  }
+
+  .mobile-home .dash-hero-stat span {
+    font-size: 0.62rem;
+  }
+
+  .mobile-home .daily-goal-banner {
+    margin-bottom: 0.45rem;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .mobile-home .goal-hint {
+    display: none;
+  }
+
+  .mobile-home .dash-nav {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem;
+    margin-bottom: 0;
+  }
+
+  .mobile-home .dash-tile {
+    padding: 0.55rem 0.4rem;
+  }
+
+  .mobile-home .dash-tile-icon {
+    font-size: 1.25rem;
+  }
+
+  .mobile-home .dash-tile-title {
+    font-size: 0.82rem;
+  }
+
+  .mobile-home .dash-tile-sub {
+    display: none;
+  }
+
+  /* 计时 · 紧凑一屏 */
+  .mobile-timer.panel-active h2 {
+    margin-bottom: 0.35rem;
+    font-size: 1rem;
+  }
+
+  .mobile-timer .timer-mode-row {
+    margin-bottom: 0.35rem;
+  }
+
+  .mobile-timer .focus-note,
+  .mobile-timer .timer-hint {
+    font-size: 0.75rem;
+    margin: 0.25rem 0;
+  }
+
+  .mobile-timer .subtask-block {
+    margin-bottom: 0.35rem;
+  }
+
+  .mobile-timer .timer-note-label {
+    margin-bottom: 0.35rem;
+    font-size: 0.82rem;
+  }
+
+  .mobile-timer .timer-ring-wrap {
+    width: 9.5rem;
+    height: 9.5rem;
+    margin: 0.35rem auto 0.25rem;
+  }
+
+  .mobile-timer .timer-display {
+    font-size: 2.15rem;
+  }
+
+  .mobile-timer .subject-chips {
+    max-height: 4.5rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-timer .btn-lg {
+    min-height: 2.5rem;
+    font-size: 0.92rem;
+  }
+
+  /* 今日 · 时间轴撑满剩余高度 */
+  .mobile-timeline-pane .card-head {
+    flex-shrink: 0;
+  }
+
+  .mobile-timeline-pane .timeline-body {
+    flex: 1;
+    min-height: 0;
+    margin-top: 0;
+  }
+
+  .mobile-timeline-pane .day-timeline {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    margin-top: 0;
     display: block;
+  }
+
+  .mobile-timeline-pane .tl-track {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .mobile-form-pane {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .today-mini-stats {
+    flex-shrink: 0;
+  }
+
+  .card-head {
+    flex-shrink: 0;
+  }
+
+  .card-head h2 {
+    font-size: 0.95rem;
+  }
+
+  .hub-pane h2 {
+    font-size: 1rem;
+    margin: 0 0 0.45rem;
   }
 
   .form {
@@ -2201,16 +2478,6 @@ input[type="text"] {
 
   .btn.full {
     grid-column: span 1;
-  }
-
-  .timer-ring-wrap {
-    width: 12.5rem;
-    height: 12.5rem;
-    margin: 0.75rem auto 0.5rem;
-  }
-
-  .timer-display {
-    font-size: 2.75rem;
   }
 
   .timer-actions {
@@ -2225,18 +2492,6 @@ input[type="text"] {
 
   .desktop-only {
     display: none;
-  }
-
-  .today-subnav {
-    display: flex;
-  }
-
-  .today-view {
-    display: none;
-  }
-
-  .today-view.active {
-    display: block;
   }
 
   .today-hub .card-head:first-child {
@@ -2266,7 +2521,13 @@ input[type="text"] {
   }
 
   .chart {
-    height: 120px;
+    height: 100%;
+    min-height: 8rem;
+  }
+
+  .chart.mobile-fill {
+    flex: 1;
+    min-height: 0;
   }
 
   .pie-grid {
@@ -2317,10 +2578,6 @@ input[type="text"] {
     max-width: none;
   }
 
-  .dash-hero {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
   .self-records-grid,
   .week-compare-grid {
     grid-template-columns: 1fr;
@@ -2328,14 +2585,6 @@ input[type="text"] {
 
   .bottom-nav .nav-btn {
     font-size: 0.68rem;
-  }
-
-  .dash-nav {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .day-timeline {
-    --tl-day-height: min(62vh, 34rem);
   }
 
   .tl-hours {
@@ -2394,14 +2643,20 @@ input[type="text"] {
     display: none !important;
   }
 
-  .today-view {
+  .stats-hub .panel-subnav,
+  .more-hub .panel-subnav,
+  .today-hub .panel-subnav {
+    display: none;
+  }
+
+  .stats-hub .stats-pane,
+  .more-hub .more-pane,
+  .today-hub .today-view {
     display: block;
   }
 
-  .today-view + .today-view {
-    margin-top: 1.35rem;
-    padding-top: 1.15rem;
-    border-top: 1px solid var(--line);
+  .mobile-hide-hint {
+    display: block;
   }
 }
 
