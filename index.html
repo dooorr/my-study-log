@@ -142,7 +142,6 @@
             <h2>🏆 学习日排行</h2>
             <button type="button" class="btn ghost sm" data-goto="stats" data-scroll="leaderboardSection">全部</button>
           </div>
-          <p class="muted block dash-leaderboard-note">只和自己比：哪一天学得最久，今天排第几</p>
           <div id="dashLeaderboard"></div>
         </div>
       </section>
@@ -277,7 +276,7 @@
 
       <section class="card span-2" data-panel="stats" id="leaderboardSection">
         <div class="card-head">
-          <h2>🏆 和自己比 · 学习日排行榜</h2>
+          <h2>🏆 学习日排行榜</h2>
           <span class="muted" id="weekCompareLabel">近 7 天对比</span>
         </div>
         <div class="week-compare" id="weekCompare"></div>
@@ -372,14 +371,14 @@
           </ol>
         </div>
 
-        <h2 style="margin-top:1.25rem">🎨 界面主题</h2>
-        <p class="muted block">Bi 为低饱和紫粉；海洋 / 森林为深浅渐变。右上角按钮可循环切换。</p>
+        <h2 style="margin-top:1.25rem">🎨</h2>
+        <p class="muted block">右上角 🌙 可循环切换。</p>
         <div class="skin-chips" id="skinChips">
-          <button type="button" class="chip skin-chip active" data-skin="light">默认</button>
-          <button type="button" class="chip skin-chip" data-skin="bi">Bi</button>
-          <button type="button" class="chip skin-chip" data-skin="ocean">海洋</button>
-          <button type="button" class="chip skin-chip" data-skin="forest">森林</button>
-          <button type="button" class="chip skin-chip" data-skin="dark">深色</button>
+          <button type="button" class="chip skin-chip active" data-skin="light" aria-label="默认主题">☀️</button>
+          <button type="button" class="chip skin-chip" data-skin="bi" aria-label="Bi 主题">🎨</button>
+          <button type="button" class="chip skin-chip" data-skin="ocean" aria-label="海洋主题">🌊</button>
+          <button type="button" class="chip skin-chip" data-skin="forest" aria-label="森林主题">🌲</button>
+          <button type="button" class="chip skin-chip" data-skin="dark" aria-label="深色主题">🌙</button>
         </div>
 
         <h2 style="margin-top:1.25rem">📅 倒数日</h2>

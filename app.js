@@ -2819,10 +2819,10 @@ function applyTheme(theme) {
   if (btn) {
     const icons = { dark: "☀️", bi: "🎨", ocean: "🌊", forest: "🌲", light: "🌙" };
     const labels = {
-      dark: "切换浅色模式",
-      bi: "切换默认主题",
-      ocean: "切换 Bi 主题",
-      forest: "切换海洋主题",
+      dark: "切换主题",
+      bi: "切换主题",
+      ocean: "切换主题",
+      forest: "切换主题",
       light: "切换主题",
     };
     btn.textContent = icons[active] || icons.light;
