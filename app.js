@@ -50,6 +50,8 @@ const PIE_COLORS = {
   吃饭: "#c9a87c",
   取快递: "#8fa8b8",
   打电话: "#b8a0b0",
+  打游戏: "#ec4899",
+  洗澡: "#38bdf8",
   其他: "#a8a29e",
 };
 
@@ -69,6 +71,8 @@ const SUBJECT_EMOJI = {
   吃饭: "🍱",
   取快递: "📦",
   打电话: "📞",
+  打游戏: "🎮",
+  洗澡: "🛀",
 };
 
 const ENCOURAGE = {
@@ -156,6 +160,8 @@ const LIFE_CATS = [
   { label: "吃饭", group: "life", lifeKind: "meal" },
   { label: "取快递", group: "life", lifeKind: "errand" },
   { label: "打电话", group: "life", lifeKind: "call" },
+  { label: "打游戏", group: "life", lifeKind: "game" }, 
+  { label: "洗澡", group: "life", lifeKind: "shower" },
 ];
 
 const LEGACY_SUBJECT_MAP = {
