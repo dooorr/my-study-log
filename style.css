@@ -2949,6 +2949,8 @@ input[type="text"] {
   .chart.mobile-fill {
     flex: 1;
     min-height: 0;
+    flex-direction: row; 
+    align-items: flex-end;
   }
 
   .pie-grid {
