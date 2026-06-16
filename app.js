@@ -24,8 +24,8 @@ const DEFAULT_COUNTDOWN = {
 
 /** @type {Record<string, number>} 科目 -> 目标总时长（小时） */
 const DEFAULT_SUBJECT_GOALS = {
-  数分: 400,
-  高代: 400,
+  数学一: 400,
+  自动控制原理: 400,
   英语: 150,
   政治: 100,
 };
@@ -40,8 +40,8 @@ const DEFAULT_STUDY_PHASES = [
 const DEFAULT_DAILY_GOAL_HOURS = 8;
 
 const PIE_COLORS = {
-  数分: "#0d6e6e",
-  高代: "#14a3a3",
+  数学一: "#0d6e6e",
+  自动控制原理: "#14a3a3",
   英语: "#94a3b8",
   政治: "#78716c",
   学习: "#0d6e6e",
@@ -62,8 +62,8 @@ const STATS_VIEW_KEY = "kaoyan_stats_view_v1";
 const MORE_VIEW_KEY = "kaoyan_more_view_v1";
 
 const SUBJECT_EMOJI = {
-  数分: "📐",
-  高代: "🔢",
+  数学一: "📐",
+  自动控制原理: "⚙️",
   英语: "📖",
   政治: "📰",
   睡觉: "😴",
@@ -77,12 +77,12 @@ const SUBJECT_EMOJI = {
 
 const ENCOURAGE = {
   morning: [
-    "☀️ 早上好，先开一数分吧",
+    "☀️ 早上好，先开考数学一吧",
     "🌅 一日之计在于晨",
-    "📐 数分一道题，手感就来了",
+    "📐 数学一一道题，手感就来了",
   ],
   afternoon: [
-    "📚 下午适合啃高代",
+    "📚 下午适合啃自控",
     "💪 午睡醒了，继续冲",
     "🎯 再专注一小时",
   ],
@@ -101,7 +101,7 @@ const ENCOURAGE = {
   ],
   goalDone: [
     "🎉 今日目标达成！",
-    "🏆 收工！明天继续数分高代",
+    "🏆 收工！明天继续数学一和自控",
     "✨ 你今天很卖力",
   ],
   streak: [
@@ -113,14 +113,14 @@ const ENCOURAGE = {
     "慢慢来，持续就是胜利",
     "今天也记一笔吧",
     "专注一小段，比空想强",
-    "数分高代，一点点啃",
+    "数学一和自控，一点点啃",
     "休息够了就回到书桌",
     "你比昨天更接近目标",
   ],
   empty: [
     "🌱 点「开始」开启今天第一笔",
     "⏱ 还没动？先计时 25 分钟",
-    "📐 数分 4.2 在等你",
+    "📐 数学一 4.2 在等你",
   ],
   afterLog: [
     "✅ 记下了，继续保持",
@@ -148,8 +148,8 @@ let pieRangeDays = 30;
 let dailyGoalMinutes = DEFAULT_DAILY_GOAL_HOURS * 60;
 
 const STUDY_CATS = [
-  { label: "数分", group: "study", primary: true },
-  { label: "高代", group: "study", primary: true },
+  { label: "数学一", group: "study", primary: true },
+  { label: "自动控制原理", group: "study", primary: true },
   { label: "英语", group: "study", primary: false },
   { label: "政治", group: "study", primary: false },
 ];
@@ -165,8 +165,12 @@ const LIFE_CATS = [
 ];
 
 const LEGACY_SUBJECT_MAP = {
-  数学: "数分",
-  专业课: "数分",
+  数学: "数学一",
+  专业课: "数学一",
+  数分: "数学一",
+  数学分析: "数学一",
+  高代: "自动控制原理",
+  高等代数: "自动控制原理",
   英语: "英语",
   政治: "政治",
   其他: "其他",
@@ -196,7 +200,7 @@ let logs = [];
 let timerSeconds = 0;
 let timerTick = null;
 let timerRunning = false;
-let timerSubject = "数分";
+let timerSubject = "数学一";
 let timerMode = "normal";
 let pomodoroPhase = "idle";
 let pomodoroWorkMin = 25;
@@ -300,9 +304,34 @@ function loadSubtasksLibrary() {
     const raw = localStorage.getItem(SUBTASKS_KEY);
     subtasksLibrary = raw ? JSON.parse(raw) : {};
     if (typeof subtasksLibrary !== "object" || Array.isArray(subtasksLibrary)) subtasksLibrary = {};
+    migrateSubtasksLibrary();
   } catch {
     subtasksLibrary = {};
   }
+}
+
+function migrateSubtasksLibrary() {
+  let migrated = false;
+  for (const [oldKey, newKey] of Object.entries(LEGACY_SUBJECT_MAP)) {
+    if (oldKey === newKey || !subtasksLibrary[oldKey]?.length) continue;
+    const merged = [...new Set([...(subtasksLibrary[newKey] || []), ...subtasksLibrary[oldKey]])].slice(0, 20);
+    subtasksLibrary[newKey] = merged;
+    delete subtasksLibrary[oldKey];
+    migrated = true;
+  }
+  if (migrated) saveSubtasksLibrary();
+}
+
+function resolveLegacyGoalHours(data, label) {
+  const direct = Number(data[label]);
+  if (direct > 0) return Math.min(2000, direct);
+  for (const [oldKey, newKey] of Object.entries(LEGACY_SUBJECT_MAP)) {
+    if (newKey === label && oldKey !== newKey) {
+      const h = Number(data[oldKey]);
+      if (h > 0) return Math.min(2000, h);
+    }
+  }
+  return 0;
 }
 
 function saveSubtasksLibrary() {
@@ -662,9 +691,9 @@ function renderPhaseStats() {
       if (titleEl) titleEl.textContent = `📆 ${current.name}`;
       if (numsEl) numsEl.textContent = formatHours(stats.totalStudy);
       if (hintEl) {
-        const shufen = formatHours(stats.bySubject["数分"] || 0);
-        const gaodai = formatHours(stats.bySubject["高代"] || 0);
-        hintEl.textContent = `${formatPhaseRange(current)} · 数分 ${shufen} · 高代 ${gaodai}`;
+        const math1 = formatHours(stats.bySubject["数学一"] || 0);
+        const control = formatHours(stats.bySubject["自动控制原理"] || 0);
+        hintEl.textContent = `${formatPhaseRange(current)} · 数学一 ${math1} · 自控 ${control}`;
       }
     } else {
       dashBanner.hidden = true;
@@ -797,8 +826,12 @@ function loadSubjectGoals() {
     }
     subjectGoals = {};
     for (const cat of STUDY_CATS) {
-      const h = Number(data[cat.label]);
-      subjectGoals[cat.label] = h > 0 ? Math.min(2000, h) : 0;
+      subjectGoals[cat.label] = resolveLegacyGoalHours(data, cat.label);
+    }
+    if (Object.values(subjectGoals).every((h) => h <= 0)) {
+      subjectGoals = { ...DEFAULT_SUBJECT_GOALS };
+    } else {
+      saveSubjectGoals();
     }
   } catch {
     subjectGoals = { ...DEFAULT_SUBJECT_GOALS };
@@ -1338,7 +1371,8 @@ function fillSubjectSelects() {
     document.getElementById(id).innerHTML = html;
   }
   const saved = localStorage.getItem(SUBJECT_KEY);
-  setTimerSubject(getAllLabels().includes(saved) ? saved : "数分");
+  const resolved = saved && LEGACY_SUBJECT_MAP[saved] ? LEGACY_SUBJECT_MAP[saved] : saved;
+  setTimerSubject(getAllLabels().includes(resolved) ? resolved : "数学一");
 }
 
 function chipHtml(c) {
@@ -3276,7 +3310,7 @@ function applyBackupData(data) {
     }
     if (data.subtasksLibrary && typeof data.subtasksLibrary === "object") {
       subtasksLibrary = data.subtasksLibrary;
-      saveSubtasksLibrary();
+      migrateSubtasksLibrary();
     }
     if (data.dailyGoalHours && Number(data.dailyGoalHours) >= 1) {
       saveDailyGoal(Number(data.dailyGoalHours));
@@ -3302,8 +3336,7 @@ function applyBackupData(data) {
     if (data.subjectGoals && typeof data.subjectGoals === "object" && !Array.isArray(data.subjectGoals)) {
       subjectGoals = {};
       for (const cat of STUDY_CATS) {
-        const h = Number(data.subjectGoals[cat.label]);
-        subjectGoals[cat.label] = h > 0 ? Math.min(2000, h) : 0;
+        subjectGoals[cat.label] = resolveLegacyGoalHours(data.subjectGoals, cat.label);
       }
       saveSubjectGoals();
     }
