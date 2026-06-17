@@ -2674,7 +2674,7 @@ input[type="text"] {
     display: flex;
     flex-direction: column;
     gap: 0;
-    margin-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 2.75rem);
+    margin-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
   }
 
   .grid {
@@ -2702,6 +2702,7 @@ input[type="text"] {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    padding-bottom: 2.75rem;
   }
 
   .mobile-hub.panel-active {
@@ -2735,6 +2736,7 @@ input[type="text"] {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    padding-bottom: 2.75rem;
   }
 
   .stats-hub .stats-pane + .stats-pane,
@@ -2765,9 +2767,10 @@ input[type="text"] {
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    /* 旧 WebView 上 flex 内滚动常失效，给一个可滚高度兜底 */
+  /* 旧 WebView 上 flex 内滚动常失效，给一个可滚高度兜底 */
     max-height: 72vh;
     max-height: 72dvh;
+    padding-bottom: 2.75rem;
   }
 
   .mobile-hide-hint {
@@ -3055,8 +3058,8 @@ input[type="text"] {
     position: fixed;
     left: 0;
     right: 0;
-    bottom: 2.75rem;
-    bottom: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+    bottom: 0;
+    bottom: env(safe-area-inset-bottom, 0px);
     height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: var(--nav-bg);
@@ -3166,20 +3169,13 @@ input[type="text"] {
   }
 }
 
-/* 真·全屏（添加到主屏幕且生效时）收回底栏留白 */
+/* 真·全屏时去掉为浏览器底栏预留的内容留白 */
 @media (display-mode: standalone) {
   @media (max-width: 720px) {
-    main.grid,
-    #mainGrid {
-      margin-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-    }
-
-    .bottom-nav {
-      bottom: 0;
-      bottom: env(safe-area-inset-bottom, 0px);
-    }
-
-    .app {
+    .grid .card.panel-active,
+    .hub-pane.active,
+    .today-view.active,
+    .mobile-fill-scroll {
       padding-bottom: 0;
     }
   }
