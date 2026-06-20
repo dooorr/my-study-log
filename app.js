@@ -542,7 +542,6 @@ function migrateLogs() {
         migrated = true;
       }
     }
-    if (log.subtask) rememberSubtask(log.subject, log.subtask);
     if (log.startAt === undefined) {
       log.startAt = "";
       migrated = true;
