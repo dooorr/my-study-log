@@ -1470,7 +1470,17 @@ input[type="text"] {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
-.pie-ring::after {
+.pie-ring.pie-ring-svg {
+  background: none;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+.pie-ring.pie-ring-svg::after {
+  display: none;
+}
+
+.pie-ring:not(.pie-ring-svg)::after {
   content: "";
   position: absolute;
   top: 22%;

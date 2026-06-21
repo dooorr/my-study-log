@@ -2071,6 +2071,45 @@ function colorForSubject(label) {
   return PIE_COLORS[label] || "#8b5cf6";
 }
 
+function piePolar(cx, cy, r, deg) {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+/** 圆环扇形路径（兼容无 conic-gradient 的旧 WebView） */
+function pieDonutSlicePath(cx, cy, ro, ri, startDeg, endDeg) {
+  let span = endDeg - startDeg;
+  if (span <= 0) return "";
+  if (span >= 359.999) span = 359.99;
+  const so = piePolar(cx, cy, ro, startDeg);
+  const eo = piePolar(cx, cy, ro, startDeg + span);
+  const si = piePolar(cx, cy, ri, startDeg + span);
+  const ei = piePolar(cx, cy, ri, startDeg);
+  const large = span > 180 ? 1 : 0;
+  return (
+    `M${so.x},${so.y} A${ro},${ro} 0 ${large},1 ${eo.x},${eo.y} ` +
+    `L${si.x},${si.y} A${ri},${ri} 0 ${large},0 ${ei.x},${ei.y} Z`
+  );
+}
+
+function buildPieRingSvg(data, total) {
+  const cx = 50;
+  const cy = 50;
+  const ro = 50;
+  const ri = 14;
+  let angle = 0;
+  const paths = data
+    .map((s) => {
+      const sweep = (s.minutes / total) * 360;
+      if (sweep <= 0) return "";
+      const start = angle;
+      angle += sweep;
+      return `<path fill="${s.color}" d="${pieDonutSlicePath(cx, cy, ro, ri, start, start + sweep)}"></path>`;
+    })
+    .join("");
+  return `<svg class="pie-ring pie-ring-svg" viewBox="0 0 100 100" role="img" aria-hidden="true">${paths}</svg>`;
+}
+
 function buildPieHtml(title, slices) {
   const data = slices.filter((s) => s.minutes > 0);
   const total = data.reduce((s, x) => s + x.minutes, 0);
@@ -2080,16 +2119,6 @@ function buildPieHtml(title, slices) {
       <div class="pie-empty">暂无数据</div>
     </div>`;
   }
-
-  let acc = 0;
-  const stops = data
-    .map((s) => {
-      const pct = (s.minutes / total) * 100;
-      const start = acc;
-      acc += pct;
-      return `${s.color} ${start.toFixed(2)}% ${acc.toFixed(2)}%`;
-    })
-    .join(", ");
 
   const legend = data
     .map((s) => {
@@ -2105,7 +2134,7 @@ function buildPieHtml(title, slices) {
   return `<div class="pie-card">
     <h3 class="pie-title">${title}</h3>
     <div class="pie-body">
-      <div class="pie-ring" style="background:conic-gradient(${stops})" role="img" aria-label="${title}"></div>
+      ${buildPieRingSvg(data, total)}
       <ul class="pie-legend">${legend}</ul>
     </div>
   </div>`;
