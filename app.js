@@ -4,6 +4,7 @@ const SUBTASKS_KEY = "kaoyan_subtasks_library_v1";
 const TAB_KEY = "kaoyan_active_tab_v1";
 const SUBJECT_KEY = "kaoyan_timer_subject_v1";
 const PIE_RANGE_KEY = "kaoyan_pie_range_v1";
+const SLEEP_COMPARE_RANGE_KEY = "kaoyan_sleep_compare_range_v1";
 const DAILY_GOAL_KEY = "kaoyan_daily_goal_v1";
 const TIMER_MODE_KEY = "kaoyan_timer_mode_v1";
 const POMODORO_WORK_KEY = "kaoyan_pomodoro_work_v1";
@@ -188,6 +189,7 @@ function getStreakBadge(streak) {
 }
 
 let pieRangeDays = 30;
+let sleepCompareRangeDays = 7;
 /** @type {number} 每日学习目标（分钟） */
 let dailyGoalMinutes = DEFAULT_DAILY_GOAL_HOURS * 60;
 
@@ -1817,6 +1819,88 @@ function getLogTimeRange(log) {
   return null;
 }
 
+function getSleepBedWake(log) {
+  if (log.subject !== "睡觉") return null;
+  const range = getLogTimeRange(log);
+  if (!range) return null;
+  return { bed: range.start, wake: range.end };
+}
+
+/** 入睡时刻转分钟（凌晨算「前一晚」，如 04:03 → 24:03） */
+function clockToBedMinutes(d) {
+  let mins = d.getHours() * 60 + d.getMinutes();
+  if (mins < 12 * 60) mins += 24 * 60;
+  return mins;
+}
+
+function clockToWakeMinutes(d) {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function bedMinutesToClock(mins) {
+  let m = Math.round(mins) % (24 * 60);
+  if (m < 0) m += 24 * 60;
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+function wakeMinutesToClock(mins) {
+  const m = Math.round(mins) % (24 * 60);
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+function formatClockOffsetMinutes(mins) {
+  const abs = Math.abs(Math.round(mins));
+  const h = Math.floor(abs / 60);
+  const min = abs % 60;
+  if (h && min) return `${h}h${min}m`;
+  if (h) return `${h}h`;
+  return `${min}m`;
+}
+
+function sleepLogsInDayRange(startOffset, days) {
+  const dates = new Set();
+  for (let i = startOffset; i < startOffset + days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dates.add(d.toISOString().slice(0, 10));
+  }
+  return logs.filter((l) => l.subject === "睡觉" && dates.has(l.date));
+}
+
+function averageSleepTimes(logList) {
+  const beds = [];
+  const wakes = [];
+  for (const log of logList) {
+    const bw = getSleepBedWake(log);
+    if (!bw) continue;
+    beds.push(clockToBedMinutes(bw.bed));
+    wakes.push(clockToWakeMinutes(bw.wake));
+  }
+  if (!beds.length) return null;
+  const bedSum = beds.reduce((a, b) => a + b, 0);
+  const wakeSum = wakes.reduce((a, b) => a + b, 0);
+  return {
+    count: beds.length,
+    bedAvg: bedSum / beds.length,
+    wakeAvg: wakeSum / wakes.length,
+  };
+}
+
+function sleepTimeDiffLabel(diffMinutes, earlierLabel, laterLabel) {
+  const rounded = Math.round(diffMinutes);
+  if (Math.abs(rounded) < 5) {
+    return { text: "基本持平", className: "flat" };
+  }
+  if (rounded < 0) {
+    return { text: `${earlierLabel} ${formatClockOffsetMinutes(-rounded)}`, className: "up" };
+  }
+  return { text: `${laterLabel} ${formatClockOffsetMinutes(rounded)}`, className: "down" };
+}
+
 function getTimelineSegmentForDate(log, dateStr) {
   const range = getLogTimeRange(log);
   if (!range) {
@@ -2073,7 +2157,10 @@ function colorForSubject(label) {
 
 function piePolar(cx, cy, r, deg) {
   const rad = ((deg - 90) * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  return {
+    x: Math.round((cx + r * Math.cos(rad)) * 100) / 100,
+    y: Math.round((cy + r * Math.sin(rad)) * 100) / 100,
+  };
 }
 
 /** 圆环扇形路径（兼容无 conic-gradient 的旧 WebView） */
@@ -2092,22 +2179,136 @@ function pieDonutSlicePath(cx, cy, ro, ri, startDeg, endDeg) {
   );
 }
 
-function buildPieRingSvg(data, total) {
+function buildPieRingPathsMarkup(data, total) {
   const cx = 50;
   const cy = 50;
   const ro = 50;
   const ri = 14;
   let angle = 0;
-  const paths = data
+  return data
     .map((s) => {
       const sweep = (s.minutes / total) * 360;
       if (sweep <= 0) return "";
       const start = angle;
       angle += sweep;
-      return `<path fill="${s.color}" d="${pieDonutSlicePath(cx, cy, ro, ri, start, start + sweep)}"></path>`;
+      const d = pieDonutSlicePath(cx, cy, ro, ri, start, start + sweep);
+      if (!d) return "";
+      return `<path fill="${s.color}" d="${d}"></path>`;
     })
     .join("");
-  return `<svg class="pie-ring pie-ring-svg" viewBox="0 0 100 100" role="img" aria-hidden="true">${paths}</svg>`;
+}
+
+/** 旧 WebView 用 innerHTML 插 SVG 常不显示，改用 data URI 图片 */
+function buildPieRingMarkup(data, total) {
+  const paths = buildPieRingPathsMarkup(data, total);
+  if (!paths) {
+    return `<div class="pie-ring pie-ring-empty" aria-hidden="true"></div>`;
+  }
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="152" height="152">` +
+    paths +
+    `</svg>`;
+  const uri = "data:image/svg+xml," + encodeURIComponent(svg);
+  return `<img class="pie-ring pie-ring-img" src="${uri}" alt="" width="152" height="152">`;
+}
+
+function buildPieRingSvg(data, total) {
+  const paths = buildPieRingPathsMarkup(data, total);
+  if (!paths) return "";
+  return `<svg class="pie-ring pie-ring-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="152" height="152" role="img" aria-hidden="true">${paths}</svg>`;
+}
+
+/** 用 DOM 挂载圆环，兼容旧 WebView 不渲染 innerHTML 内 SVG / data URI 的情况 */
+function mountPieRingDom(host, data, total) {
+  host.innerHTML = "";
+  const cx = 50;
+  const cy = 50;
+  const ro = 50;
+  const ri = 14;
+  let angle = 0;
+  const slices = [];
+  for (let i = 0; i < data.length; i++) {
+    const s = data[i];
+    const sweep = (s.minutes / total) * 360;
+    if (sweep <= 0) continue;
+    const start = angle;
+    angle += sweep;
+    const d = pieDonutSlicePath(cx, cy, ro, ri, start, start + sweep);
+    if (d) slices.push({ color: s.color, d: d });
+  }
+  if (!slices.length) {
+    const empty = document.createElement("div");
+    empty.className = "pie-ring pie-ring-empty";
+    empty.setAttribute("aria-hidden", "true");
+    host.appendChild(empty);
+    return;
+  }
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "pie-ring pie-ring-svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("width", "152");
+  svg.setAttribute("height", "152");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-hidden", "true");
+  for (let j = 0; j < slices.length; j++) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("fill", slices[j].color);
+    path.setAttribute("d", slices[j].d);
+    svg.appendChild(path);
+  }
+  host.appendChild(svg);
+}
+
+function appendPieCardDom(container, title, slices) {
+  const data = slices.filter(function (s) {
+    return s.minutes > 0;
+  });
+  const total = data.reduce(function (sum, x) {
+    return sum + x.minutes;
+  }, 0);
+  const card = document.createElement("div");
+  card.className = "pie-card";
+  const heading = document.createElement("h3");
+  heading.className = "pie-title";
+  heading.textContent = title;
+  card.appendChild(heading);
+  if (!total) {
+    const empty = document.createElement("div");
+    empty.className = "pie-empty";
+    empty.textContent = "暂无数据";
+    card.appendChild(empty);
+    container.appendChild(card);
+    return;
+  }
+  const body = document.createElement("div");
+  body.className = "pie-body";
+  const ringHost = document.createElement("div");
+  ringHost.className = "pie-ring-host";
+  mountPieRingDom(ringHost, data, total);
+  body.appendChild(ringHost);
+  const legend = document.createElement("ul");
+  legend.className = "pie-legend";
+  for (let i = 0; i < data.length; i++) {
+    const s = data[i];
+    const pct = Math.round((s.minutes / total) * 100);
+    const li = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = "pie-dot";
+    dot.style.background = s.color;
+    const name = document.createElement("span");
+    name.className = "pie-name";
+    name.textContent = s.label;
+    const val = document.createElement("span");
+    val.className = "pie-val";
+    val.textContent = `${formatHours(s.minutes)} · ${pct}%`;
+    li.appendChild(dot);
+    li.appendChild(name);
+    li.appendChild(val);
+    legend.appendChild(li);
+  }
+  body.appendChild(legend);
+  card.appendChild(body);
+  container.appendChild(card);
 }
 
 function buildPieHtml(title, slices) {
@@ -2134,7 +2335,7 @@ function buildPieHtml(title, slices) {
   return `<div class="pie-card">
     <h3 class="pie-title">${title}</h3>
     <div class="pie-body">
-      ${buildPieRingSvg(data, total)}
+      ${buildPieRingMarkup(data, total)}
       <ul class="pie-legend">${legend}</ul>
     </div>
   </div>`;
@@ -2183,9 +2384,9 @@ function renderPieCharts() {
   ];
   if (other > 0) overviewSlices.push({ label: "其他", minutes: other, color: PIE_COLORS.其他 });
 
-  el.innerHTML =
-    buildPieHtml(`${rangeLabel} · 学习科目`, studySlices) +
-    buildPieHtml(`${rangeLabel} · 时间结构`, overviewSlices);
+  el.innerHTML = "";
+  appendPieCardDom(el, `${rangeLabel} · 学习科目`, studySlices);
+  appendPieCardDom(el, `${rangeLabel} · 时间结构`, overviewSlices);
 
   document.querySelectorAll("#pieRangeChips .range-chip").forEach((btn) => {
     btn.classList.toggle("active", Number(btn.dataset.range) === pieRangeDays);
@@ -2201,6 +2402,68 @@ function initPieRange() {
       pieRangeDays = Number(btn.dataset.range);
       localStorage.setItem(PIE_RANGE_KEY, String(pieRangeDays));
       renderPieCharts();
+    });
+  });
+}
+
+function renderSleepCompare() {
+  const el = document.getElementById("sleepCompare");
+  if (!el) return;
+
+  const days = sleepCompareRangeDays;
+  const thisLogs = sleepLogsInDayRange(0, days);
+  const lastLogs = sleepLogsInDayRange(days, days);
+  const thisAvg = averageSleepTimes(thisLogs);
+  const lastAvg = averageSleepTimes(lastLogs);
+
+  document.querySelectorAll("#sleepCompareRangeChips .range-chip").forEach((btn) => {
+    btn.classList.toggle("active", Number(btn.dataset.sleepRange) === days);
+  });
+
+  if (!thisAvg) {
+    el.innerHTML = `<p class="empty">近 ${days} 天还没有睡眠记录，在「记一笔」里记睡眠吧。</p>`;
+    return;
+  }
+
+  const bedDiff = lastAvg ? thisAvg.bedAvg - lastAvg.bedAvg : 0;
+  const wakeDiff = lastAvg ? thisAvg.wakeAvg - lastAvg.wakeAvg : 0;
+  const bedLabel = sleepTimeDiffLabel(bedDiff, "早睡", "晚睡");
+  const wakeLabel = sleepTimeDiffLabel(wakeDiff, "早起", "晚起");
+  const periodLabel = days === 7 ? "近 7 天" : "近 30 天";
+  const lastBedStr = lastAvg ? bedMinutesToClock(lastAvg.bedAvg) : "—";
+  const lastWakeStr = lastAvg ? wakeMinutesToClock(lastAvg.wakeAvg) : "—";
+  const lastMeta = lastAvg
+    ? `${thisAvg.count} 条 vs ${lastAvg.count} 条`
+    : `${thisAvg.count} 条 · 上一周期暂无数据`;
+
+  el.innerHTML = `<div class="sleep-compare-block">
+    <h3 class="sleep-compare-title">🌙 平均入睡</h3>
+    <div class="week-compare-grid">
+      <div class="week-compare-item"><span>${periodLabel}</span><strong>${bedMinutesToClock(thisAvg.bedAvg)}</strong></div>
+      <div class="week-compare-item"><span>上一周期</span><strong>${lastBedStr}</strong></div>
+      <div class="week-compare-item"><span>变化</span><strong class="week-diff ${lastAvg ? bedLabel.className : "flat"}">${lastAvg ? bedLabel.text : "—"}</strong></div>
+    </div>
+    <p class="muted sleep-compare-meta">${lastMeta}</p>
+  </div>
+  <div class="sleep-compare-block">
+    <h3 class="sleep-compare-title">☀️ 平均起床</h3>
+    <div class="week-compare-grid">
+      <div class="week-compare-item"><span>${periodLabel}</span><strong>${wakeMinutesToClock(thisAvg.wakeAvg)}</strong></div>
+      <div class="week-compare-item"><span>上一周期</span><strong>${lastWakeStr}</strong></div>
+      <div class="week-compare-item"><span>变化</span><strong class="week-diff ${lastAvg ? wakeLabel.className : "flat"}">${lastAvg ? wakeLabel.text : "—"}</strong></div>
+    </div>
+  </div>`;
+}
+
+function initSleepCompareRange() {
+  const saved = Number(localStorage.getItem(SLEEP_COMPARE_RANGE_KEY));
+  if (saved === 7 || saved === 30) sleepCompareRangeDays = saved;
+
+  document.querySelectorAll("#sleepCompareRangeChips .range-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      sleepCompareRangeDays = Number(btn.dataset.sleepRange);
+      localStorage.setItem(SLEEP_COMPARE_RANGE_KEY, String(sleepCompareRangeDays));
+      renderSleepCompare();
     });
   });
 }
@@ -2634,6 +2897,7 @@ function renderAll() {
   renderDayTimeline();
   renderWeekChart();
   renderPieCharts();
+  renderSleepCompare();
   renderCalendar();
   renderSubjectBars();
   renderSubtaskBars();
@@ -3586,6 +3850,7 @@ renderCustomList();
 renderSubtaskPresetList();
 updateSubtaskDatalists();
 initPieRange();
+initSleepCompareRange();
 initCalendar();
 initTimeline();
 initLogEditModal();

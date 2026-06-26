@@ -285,15 +285,17 @@
 
       <section class="card span-2 stats-hub mobile-hub" data-panel="stats" id="statsHub">
         <nav class="panel-subnav stats-subnav" aria-label="统计分页">
-          <button type="button" class="panel-subnav-btn stats-subnav-btn active" data-stats-view="rank">🏆</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="progress">📊</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="phase">📆</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="cal">📅</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn active" data-stats-view="rank">排行</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="progress">进度</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="phase">阶段</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="cal">日历</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="sleep">睡眠</button>
           <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="week">7天</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="pie">🥧</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="bars">📈</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="subtask">📌</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="pie">占比</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="bars">分布</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="subtask">子任务</button>
         </nav>
+        <p class="subnav-scroll-hint">← 左右滑动查看更多统计 →</p>
 
         <div class="hub-pane stats-pane active" data-stats-view="rank" id="leaderboardSection">
           <div class="card-head">
@@ -343,6 +345,20 @@
           </div>
         </div>
 
+        <div class="hub-pane stats-pane" data-stats-view="sleep" id="sleepCompareSection">
+          <div class="card-head">
+            <h2>睡眠作息对比</h2>
+            <div class="range-chips" id="sleepCompareRangeChips">
+              <button type="button" class="chip range-chip active" data-sleep-range="7">7天</button>
+              <button type="button" class="chip range-chip" data-sleep-range="30">30天</button>
+            </div>
+          </div>
+          <div class="mobile-fill-scroll">
+            <p class="muted block">按起床日期统计；对比本周期与上一周期的平均入睡、起床时刻。</p>
+            <div id="sleepCompare"></div>
+          </div>
+        </div>
+
         <div class="hub-pane stats-pane" data-stats-view="week">
           <div class="card-head">
             <h2>📊 近 7 天学习</h2>
@@ -353,7 +369,7 @@
 
         <div class="hub-pane stats-pane" data-stats-view="pie">
           <div class="card-head">
-            <h2>🥧 时间占比</h2>
+            <h2>时间占比</h2>
             <div class="range-chips" id="pieRangeChips">
               <button type="button" class="chip range-chip" data-range="7">7天</button>
               <button type="button" class="chip range-chip active" data-range="30">30天</button>
