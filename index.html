@@ -147,7 +147,7 @@
         <div class="dash-leaderboard">
           <div class="card-head">
             <h2>🏆 学习日排行</h2>
-            <button type="button" class="btn ghost sm" data-goto="stats" data-stats-view="rank">全部</button>
+            <button type="button" class="btn ghost sm" data-goto="stats" data-stats-view="overview">全部</button>
           </div>
           <div id="dashLeaderboard"></div>
         </div>
@@ -285,50 +285,50 @@
 
       <section class="card span-2 stats-hub mobile-hub" data-panel="stats" id="statsHub">
         <nav class="panel-subnav stats-subnav" aria-label="统计分页">
-          <button type="button" class="panel-subnav-btn stats-subnav-btn active" data-stats-view="rank">排行</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="progress">进度</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="phase">阶段</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn active" data-stats-view="overview">总览</button>
           <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="cal">日历</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="sleep">睡眠</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="week">7天</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="pie">占比</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="bars">分布</button>
-          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="subtask">子任务</button>
+          <button type="button" class="panel-subnav-btn stats-subnav-btn" data-stats-view="study">科目</button>
         </nav>
-        <p class="subnav-scroll-hint">← 左右滑动查看更多统计 →</p>
 
-        <div class="hub-pane stats-pane active" data-stats-view="rank" id="leaderboardSection">
+        <div class="hub-pane stats-pane active" data-stats-view="overview" id="statsOverviewSection">
           <div class="card-head">
-            <h2>🏆 学习日排行榜</h2>
-            <span class="muted" id="weekCompareLabel">近 7 天对比</span>
+            <h2>统计总览</h2>
+            <div class="range-chips" id="overviewRangeChips">
+              <button type="button" class="chip range-chip" data-range="7">7天</button>
+              <button type="button" class="chip range-chip active" data-range="30">30天</button>
+            </div>
           </div>
-          <div class="mobile-fill-scroll">
-            <div class="week-compare" id="weekCompare"></div>
-            <div class="self-records" id="selfRecords"></div>
-            <div class="leaderboard-table" id="selfLeaderboardFull"></div>
+          <div class="mobile-fill-scroll stats-overview-scroll">
+            <section class="stats-block">
+              <h3 class="stats-block-title">作息</h3>
+              <div id="sleepStats"></div>
+            </section>
+            <section class="stats-block">
+              <div class="card-head stats-block-head">
+                <h3 class="stats-block-title">近 7 天学习</h3>
+                <span class="muted" id="weekTotal">本周 0h</span>
+              </div>
+              <div class="chart stats-week-chart" id="weekChart"></div>
+            </section>
+            <section class="stats-block">
+              <h3 class="stats-block-title">学习对比</h3>
+              <div id="weekCompare"></div>
+              <div class="self-records" id="selfRecords"></div>
+            </section>
+            <section class="stats-block">
+              <h3 class="stats-block-title">时间占比</h3>
+              <div class="pie-grid" id="pieGrid"></div>
+            </section>
+            <section class="stats-block">
+              <h3 class="stats-block-title">学习日排行</h3>
+              <div class="leaderboard-table" id="selfLeaderboardFull"></div>
+            </section>
           </div>
-        </div>
-
-        <div class="hub-pane stats-pane" data-stats-view="progress">
-          <div class="card-head">
-            <h2>📊 科目复习进度</h2>
-            <span class="muted" id="statsProgressHint">累计学习时长 / 目标</span>
-          </div>
-          <div class="mobile-fill-scroll" id="statsSubjectProgress"></div>
-        </div>
-
-        <div class="hub-pane stats-pane" data-stats-view="phase" id="phaseStatsSection">
-          <div class="card-head">
-            <h2>📆 阶段统计</h2>
-            <button type="button" class="btn ghost sm" data-goto="more" data-more-view="phase">设置阶段</button>
-          </div>
-          <p class="muted block mobile-hide-hint">按复习阶段汇总学习时长，看各阶段数学一/自控分布。</p>
-          <div class="mobile-fill-scroll" id="phaseStatsList"></div>
         </div>
 
         <div class="hub-pane stats-pane mobile-cal-pane" data-stats-view="cal">
           <div class="card-head">
-            <h2>📅 学习日历</h2>
+            <h2>学习日历</h2>
             <div class="cal-nav">
               <button type="button" class="btn ghost sm" id="calPrev" aria-label="上个月">‹</button>
               <span class="cal-title" id="calTitle">2026年6月</span>
@@ -345,52 +345,31 @@
           </div>
         </div>
 
-        <div class="hub-pane stats-pane" data-stats-view="sleep" id="sleepCompareSection">
-          <div class="card-head">
-            <h2>睡眠作息对比</h2>
-            <div class="range-chips" id="sleepCompareRangeChips">
-              <button type="button" class="chip range-chip active" data-sleep-range="7">7天</button>
-              <button type="button" class="chip range-chip" data-sleep-range="30">30天</button>
-            </div>
+        <div class="hub-pane stats-pane" data-stats-view="study" id="statsStudySection">
+          <div class="mobile-fill-scroll stats-study-scroll">
+            <section class="stats-block">
+              <div class="card-head stats-block-head">
+                <h3 class="stats-block-title">科目进度</h3>
+                <span class="muted" id="statsProgressHint">累计 / 目标</span>
+              </div>
+              <div id="statsSubjectProgress"></div>
+            </section>
+            <section class="stats-block" id="phaseStatsSection">
+              <div class="card-head stats-block-head">
+                <h3 class="stats-block-title">阶段统计</h3>
+                <button type="button" class="btn ghost sm" data-goto="more" data-more-view="phase">设置</button>
+              </div>
+              <div id="phaseStatsList"></div>
+            </section>
+            <section class="stats-block">
+              <h3 class="stats-block-title">近 30 天分布</h3>
+              <div class="subject-bars" id="subjectBars"></div>
+            </section>
+            <section class="stats-block">
+              <h3 class="stats-block-title">子任务</h3>
+              <div class="subject-bars" id="subtaskBars"></div>
+            </section>
           </div>
-          <div class="mobile-fill-scroll">
-            <p class="muted block">按起床日期统计；对比本周期与上一周期的平均入睡、起床时刻。</p>
-            <div id="sleepCompare"></div>
-          </div>
-        </div>
-
-        <div class="hub-pane stats-pane" data-stats-view="week">
-          <div class="card-head">
-            <h2>📊 近 7 天学习</h2>
-            <span class="muted" id="weekTotal">本周学习 0h</span>
-          </div>
-          <div class="chart mobile-fill" id="weekChart"></div>
-        </div>
-
-        <div class="hub-pane stats-pane" data-stats-view="pie">
-          <div class="card-head">
-            <h2>时间占比</h2>
-            <div class="range-chips" id="pieRangeChips">
-              <button type="button" class="chip range-chip" data-range="7">7天</button>
-              <button type="button" class="chip range-chip active" data-range="30">30天</button>
-            </div>
-          </div>
-          <div class="mobile-fill-scroll pie-grid" id="pieGrid"></div>
-        </div>
-
-        <div class="hub-pane stats-pane" data-stats-view="bars">
-          <div class="card-head">
-            <h2>📈 近 30 天分布</h2>
-          </div>
-          <div class="mobile-fill-scroll subject-bars" id="subjectBars"></div>
-        </div>
-
-        <div class="hub-pane stats-pane" data-stats-view="subtask">
-          <div class="card-head">
-            <h2>📌 子任务统计</h2>
-          </div>
-          <p class="focus-note mobile-hide-hint">有子任务的记录会显示为「数学一 · 4.2」这种格式。</p>
-          <div class="mobile-fill-scroll subject-bars" id="subtaskBars"></div>
         </div>
       </section>
 

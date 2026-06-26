@@ -505,23 +505,74 @@ h1 {
   color: var(--muted);
 }
 
-.sleep-compare-block {
-  margin-bottom: 1rem;
+.stats-block {
+  margin-bottom: 1.1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
 }
 
-.sleep-compare-block:last-child {
+.stats-block:last-child {
   margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
-.sleep-compare-title {
+.stats-block-title {
   font-size: 0.88rem;
-  font-weight: 600;
-  margin: 0 0 0.45rem;
+  font-weight: 650;
+  margin: 0;
 }
 
-.sleep-compare-meta {
+.stats-block-head {
+  margin-bottom: 0.45rem;
+}
+
+.stats-block-head .stats-block-title {
+  margin: 0;
+}
+
+.stats-week-chart {
+  display: flex;
+  align-items: flex-end;
+  min-height: 8.5rem;
+}
+
+.sleep-avg-grid {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sleep-avg-stat {
+  flex: 1;
+  min-width: 0;
+  background: var(--elevated);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem 0.5rem;
+  text-align: center;
+}
+
+.sleep-avg-label {
+  display: block;
   font-size: 0.72rem;
-  margin: 0.35rem 0 0;
+  color: var(--muted);
+}
+
+.sleep-avg-time {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.35rem;
+  color: var(--sleep);
+  font-variant-numeric: tabular-nums;
+}
+
+.sleep-avg-time.wake {
+  color: var(--accent);
+}
+
+.sleep-avg-meta {
+  font-size: 0.72rem;
+  margin: 0.4rem 0 0;
 }
 
 .self-records-grid {
@@ -2800,9 +2851,9 @@ input[type="text"] {
   }
 
   .stats-subnav .panel-subnav-btn {
-    flex: 0 0 auto;
-    min-width: 2.75rem;
-    padding: 0.45rem 0.55rem;
+    flex: 1;
+    min-width: 0;
+    padding: 0.45rem 0.35rem;
   }
 
   .hub-pane {

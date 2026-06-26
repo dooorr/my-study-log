@@ -4,7 +4,6 @@ const SUBTASKS_KEY = "kaoyan_subtasks_library_v1";
 const TAB_KEY = "kaoyan_active_tab_v1";
 const SUBJECT_KEY = "kaoyan_timer_subject_v1";
 const PIE_RANGE_KEY = "kaoyan_pie_range_v1";
-const SLEEP_COMPARE_RANGE_KEY = "kaoyan_sleep_compare_range_v1";
 const DAILY_GOAL_KEY = "kaoyan_daily_goal_v1";
 const TIMER_MODE_KEY = "kaoyan_timer_mode_v1";
 const POMODORO_WORK_KEY = "kaoyan_pomodoro_work_v1";
@@ -189,7 +188,6 @@ function getStreakBadge(streak) {
 }
 
 let pieRangeDays = 30;
-let sleepCompareRangeDays = 7;
 /** @type {number} 每日学习目标（分钟） */
 let dailyGoalMinutes = DEFAULT_DAILY_GOAL_HOURS * 60;
 
@@ -1532,7 +1530,7 @@ function initMobileNav() {
       localStorage.setItem(TAB_KEY, name);
       if (name === "today") renderDayTimeline();
       if (name === "home") renderEncouragement();
-      if (name === "stats") setStatsView(localStorage.getItem(STATS_VIEW_KEY) || "rank", false);
+      if (name === "stats") setStatsView(localStorage.getItem(STATS_VIEW_KEY) || "overview", false);
       if (name === "more") setMoreView(localStorage.getItem(MORE_VIEW_KEY) || "app", false);
     } else {
       panels.forEach((panel) => panel.classList.add("panel-active"));
@@ -1543,7 +1541,7 @@ function initMobileNav() {
     applyTab(tab);
     if (todayView) setTodayView(todayView);
     if (statsView) setStatsView(statsView);
-    else if (tab === "stats" && scrollId === "leaderboardSection") setStatsView("rank");
+    else if (tab === "stats" && scrollId === "statsOverviewSection") setStatsView("overview");
     if (moreView) setMoreView(moreView);
     else if (tab === "more" && scrollId === "phaseSettingsSection") setMoreView("phase");
     if (scrollId && !isMobileLayout()) {
@@ -1588,8 +1586,16 @@ function setTodayView(view, save = true) {
   if (name === "timeline") renderDayTimeline();
 }
 
+function normalizeStatsView(view) {
+  const v = view || "overview";
+  if (v === "cal" || v === "overview" || v === "study") return v;
+  if (["rank", "week", "sleep", "pie"].includes(v)) return "overview";
+  if (["progress", "phase", "bars", "subtask"].includes(v)) return "study";
+  return "overview";
+}
+
 function setStatsView(view, save = true) {
-  const name = view || "rank";
+  const name = normalizeStatsView(view);
   document.querySelectorAll(".stats-subnav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.statsView === name);
   });
@@ -1621,7 +1627,7 @@ function initStatsSubnav() {
   document.querySelectorAll(".stats-subnav-btn").forEach((btn) => {
     btn.addEventListener("click", () => setStatsView(btn.dataset.statsView));
   });
-  setStatsView(localStorage.getItem(STATS_VIEW_KEY) || "rank", false);
+  setStatsView(localStorage.getItem(STATS_VIEW_KEY) || "overview", false);
 }
 
 function initMoreSubnav() {
@@ -1852,15 +1858,6 @@ function wakeMinutesToClock(mins) {
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
-function formatClockOffsetMinutes(mins) {
-  const abs = Math.abs(Math.round(mins));
-  const h = Math.floor(abs / 60);
-  const min = abs % 60;
-  if (h && min) return `${h}h${min}m`;
-  if (h) return `${h}h`;
-  return `${min}m`;
-}
-
 function sleepLogsInDayRange(startOffset, days) {
   const dates = new Set();
   for (let i = startOffset; i < startOffset + days; i++) {
@@ -1888,17 +1885,6 @@ function averageSleepTimes(logList) {
     bedAvg: bedSum / beds.length,
     wakeAvg: wakeSum / wakes.length,
   };
-}
-
-function sleepTimeDiffLabel(diffMinutes, earlierLabel, laterLabel) {
-  const rounded = Math.round(diffMinutes);
-  if (Math.abs(rounded) < 5) {
-    return { text: "基本持平", className: "flat" };
-  }
-  if (rounded < 0) {
-    return { text: `${earlierLabel} ${formatClockOffsetMinutes(-rounded)}`, className: "up" };
-  }
-  return { text: `${laterLabel} ${formatClockOffsetMinutes(rounded)}`, className: "down" };
 }
 
 function getTimelineSegmentForDate(log, dateStr) {
@@ -2388,84 +2374,50 @@ function renderPieCharts() {
   appendPieCardDom(el, `${rangeLabel} · 学习科目`, studySlices);
   appendPieCardDom(el, `${rangeLabel} · 时间结构`, overviewSlices);
 
-  document.querySelectorAll("#pieRangeChips .range-chip").forEach((btn) => {
+  document.querySelectorAll("#overviewRangeChips .range-chip").forEach((btn) => {
     btn.classList.toggle("active", Number(btn.dataset.range) === pieRangeDays);
   });
 }
 
-function initPieRange() {
+function initOverviewRange() {
   const saved = Number(localStorage.getItem(PIE_RANGE_KEY));
   if (saved === 7 || saved === 30) pieRangeDays = saved;
 
-  document.querySelectorAll("#pieRangeChips .range-chip").forEach((btn) => {
+  document.querySelectorAll("#overviewRangeChips .range-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       pieRangeDays = Number(btn.dataset.range);
       localStorage.setItem(PIE_RANGE_KEY, String(pieRangeDays));
       renderPieCharts();
+      renderSleepStats();
     });
   });
 }
 
-function renderSleepCompare() {
-  const el = document.getElementById("sleepCompare");
+function renderSleepStats() {
+  const el = document.getElementById("sleepStats");
   if (!el) return;
 
-  const days = sleepCompareRangeDays;
-  const thisLogs = sleepLogsInDayRange(0, days);
-  const lastLogs = sleepLogsInDayRange(days, days);
-  const thisAvg = averageSleepTimes(thisLogs);
-  const lastAvg = averageSleepTimes(lastLogs);
+  const days = pieRangeDays;
+  const sleepLogs = sleepLogsInDayRange(0, days);
+  const avg = averageSleepTimes(sleepLogs);
+  const periodLabel = days === 7 ? "近 7 天" : "近 30 天";
 
-  document.querySelectorAll("#sleepCompareRangeChips .range-chip").forEach((btn) => {
-    btn.classList.toggle("active", Number(btn.dataset.sleepRange) === days);
-  });
-
-  if (!thisAvg) {
-    el.innerHTML = `<p class="empty">近 ${days} 天还没有睡眠记录，在「记一笔」里记睡眠吧。</p>`;
+  if (!avg) {
+    el.innerHTML = `<p class="empty">${ periodLabel }暂无睡眠记录</p>`;
     return;
   }
 
-  const bedDiff = lastAvg ? thisAvg.bedAvg - lastAvg.bedAvg : 0;
-  const wakeDiff = lastAvg ? thisAvg.wakeAvg - lastAvg.wakeAvg : 0;
-  const bedLabel = sleepTimeDiffLabel(bedDiff, "早睡", "晚睡");
-  const wakeLabel = sleepTimeDiffLabel(wakeDiff, "早起", "晚起");
-  const periodLabel = days === 7 ? "近 7 天" : "近 30 天";
-  const lastBedStr = lastAvg ? bedMinutesToClock(lastAvg.bedAvg) : "—";
-  const lastWakeStr = lastAvg ? wakeMinutesToClock(lastAvg.wakeAvg) : "—";
-  const lastMeta = lastAvg
-    ? `${thisAvg.count} 条 vs ${lastAvg.count} 条`
-    : `${thisAvg.count} 条 · 上一周期暂无数据`;
-
-  el.innerHTML = `<div class="sleep-compare-block">
-    <h3 class="sleep-compare-title">🌙 平均入睡</h3>
-    <div class="week-compare-grid">
-      <div class="week-compare-item"><span>${periodLabel}</span><strong>${bedMinutesToClock(thisAvg.bedAvg)}</strong></div>
-      <div class="week-compare-item"><span>上一周期</span><strong>${lastBedStr}</strong></div>
-      <div class="week-compare-item"><span>变化</span><strong class="week-diff ${lastAvg ? bedLabel.className : "flat"}">${lastAvg ? bedLabel.text : "—"}</strong></div>
+  el.innerHTML = `<div class="sleep-avg-grid">
+    <div class="sleep-avg-stat">
+      <span class="sleep-avg-label">平均入睡</span>
+      <strong class="sleep-avg-time">${bedMinutesToClock(avg.bedAvg)}</strong>
     </div>
-    <p class="muted sleep-compare-meta">${lastMeta}</p>
+    <div class="sleep-avg-stat">
+      <span class="sleep-avg-label">平均起床</span>
+      <strong class="sleep-avg-time wake">${wakeMinutesToClock(avg.wakeAvg)}</strong>
+    </div>
   </div>
-  <div class="sleep-compare-block">
-    <h3 class="sleep-compare-title">☀️ 平均起床</h3>
-    <div class="week-compare-grid">
-      <div class="week-compare-item"><span>${periodLabel}</span><strong>${wakeMinutesToClock(thisAvg.wakeAvg)}</strong></div>
-      <div class="week-compare-item"><span>上一周期</span><strong>${lastWakeStr}</strong></div>
-      <div class="week-compare-item"><span>变化</span><strong class="week-diff ${lastAvg ? wakeLabel.className : "flat"}">${lastAvg ? wakeLabel.text : "—"}</strong></div>
-    </div>
-  </div>`;
-}
-
-function initSleepCompareRange() {
-  const saved = Number(localStorage.getItem(SLEEP_COMPARE_RANGE_KEY));
-  if (saved === 7 || saved === 30) sleepCompareRangeDays = saved;
-
-  document.querySelectorAll("#sleepCompareRangeChips .range-chip").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      sleepCompareRangeDays = Number(btn.dataset.sleepRange);
-      localStorage.setItem(SLEEP_COMPARE_RANGE_KEY, String(sleepCompareRangeDays));
-      renderSleepCompare();
-    });
-  });
+  <p class="muted sleep-avg-meta">${ periodLabel } · ${avg.count} 条记录</p>`;
 }
 
 function renderWeekChart() {
@@ -2473,7 +2425,7 @@ function renderWeekChart() {
   const studyMins = (date) => minutesOnDate(date, (l) => isStudyLabel(l.subject));
   const max = Math.max(...days.map(studyMins), 1);
   const weekMins = days.reduce((s, d) => s + studyMins(d), 0);
-  document.getElementById("weekTotal").textContent = `本周学习 ${formatHours(weekMins)}`;
+  document.getElementById("weekTotal").textContent = `本周 ${formatHours(weekMins)}`;
 
   const labels = ["日", "一", "二", "三", "四", "五", "六"];
   document.getElementById("weekChart").innerHTML = days
@@ -2897,7 +2849,7 @@ function renderAll() {
   renderDayTimeline();
   renderWeekChart();
   renderPieCharts();
-  renderSleepCompare();
+  renderSleepStats();
   renderCalendar();
   renderSubjectBars();
   renderSubtaskBars();
@@ -3849,8 +3801,7 @@ renderTimerChips();
 renderCustomList();
 renderSubtaskPresetList();
 updateSubtaskDatalists();
-initPieRange();
-initSleepCompareRange();
+initOverviewRange();
 initCalendar();
 initTimeline();
 initLogEditModal();
