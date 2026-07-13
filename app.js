@@ -2801,12 +2801,154 @@ function exportICS() {
   }
 
   lines.push("END:VCALENDAR");
-  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `study-calendar-${todayStr()}.ics`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  downloadTextFile(lines.join("\r\n"), `study-calendar-${todayStr()}.ics`, "text/calendar;charset=utf-8");
+}
+
+function buildBackupPayload() {
+  return {
+    version: 3,
+    logs,
+    customCategories,
+    subtasksLibrary,
+    dailyGoalHours: dailyGoalMinutes / 60,
+    pomodoroWorkMin,
+    pomodoroBreakMin,
+    timerMode,
+    dayLogOrder,
+    countdown,
+    subjectGoals,
+    studyPhases,
+  };
+}
+
+function getBackupFilename() {
+  return `kaoyan-study-backup-${todayStr()}.json`;
+}
+
+function downloadTextFile(content, filename, mimeType) {
+  const mime = mimeType || "application/octet-stream";
+  const blob = new Blob([content], { type: mime });
+  if (window.navigator && navigator.msSaveOrOpenBlob) {
+    navigator.msSaveOrOpenBlob(blob, filename);
+    return true;
+  }
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.setAttribute("download", filename);
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      if (a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 5000);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function tryDataUriDownload(content, filename, mimeType) {
+  if (content.length > 1500000) return false;
+  try {
+    const a = document.createElement("a");
+    a.href = `data:${mimeType || "text/plain"},${encodeURIComponent(content)}`;
+    a.download = filename;
+    a.setAttribute("download", filename);
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      if (a.parentNode) a.parentNode.removeChild(a);
+    }, 500);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function copyTextToClipboard(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "readonly");
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch (e) {
+    ok = false;
+  }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+function openBackupExportModal(jsonText, filename) {
+  const modal = document.getElementById("backupExportModal");
+  const ta = document.getElementById("backupExportText");
+  const nameEl = document.getElementById("backupExportFilename");
+  if (!modal || !ta) return;
+  ta.value = jsonText;
+  if (nameEl) nameEl.textContent = filename || getBackupFilename();
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+  ta.focus();
+}
+
+function closeBackupExportModal() {
+  const modal = document.getElementById("backupExportModal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function getBackupJsonText() {
+  return JSON.stringify(buildBackupPayload(), null, 2);
+}
+
+function exportBackupJson(showModalOnMobile) {
+  const json = getBackupJsonText();
+  const filename = getBackupFilename();
+  downloadTextFile(json, filename, "application/json;charset=utf-8");
+  if (!tryDataUriDownload(json, filename, "application/json;charset=utf-8")) {
+    /* data URI 过长时会跳过 */
+  }
+  if (showModalOnMobile !== false && isMobileLayout()) {
+    openBackupExportModal(json, filename);
+    showToast("若下载没反应，请用弹窗复制");
+    return;
+  }
+  showToast("✅ 已尝试导出 JSON");
+}
+
+function initBackupExportModal() {
+  const modal = document.getElementById("backupExportModal");
+  if (!modal) return;
+  onId("backupExportBackdrop", "click", closeBackupExportModal);
+  onId("backupExportClose", "click", closeBackupExportModal);
+  onId("backupExportSelect", "click", () => {
+    const ta = document.getElementById("backupExportText");
+    if (!ta) return;
+    ta.focus();
+    ta.select();
+  });
+  onId("backupExportCopy", "click", () => {
+    const ta = document.getElementById("backupExportText");
+    if (!ta) return;
+    ta.focus();
+    ta.select();
+    if (copyTextToClipboard(ta.value)) {
+      showToast("✅ 已复制，粘贴到微信发给自己");
+      return;
+    }
+    showToast("请长按上方文本框 → 全选 → 复制");
+  });
 }
 
 function initCalendar() {
@@ -3562,27 +3704,14 @@ function initTools() {
   document.getElementById("exportIcsBtn").addEventListener("click", exportICS);
 
   document.getElementById("exportBtn").addEventListener("click", () => {
-    const payload = {
-      version: 3,
-      logs,
-      customCategories,
-      subtasksLibrary,
-      dailyGoalHours: dailyGoalMinutes / 60,
-      pomodoroWorkMin,
-      pomodoroBreakMin,
-      timerMode,
-      dayLogOrder,
-      countdown,
-      subjectGoals,
-      studyPhases,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `kaoyan-study-backup-${todayStr()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    exportBackupJson(true);
   });
+
+  document.getElementById("copyBackupBtn").addEventListener("click", () => {
+    openBackupExportModal(getBackupJsonText(), getBackupFilename());
+  });
+
+  initBackupExportModal();
 
   document.getElementById("importFile").addEventListener("change", (e) => {
     const file = e.target.files && e.target.files[0];

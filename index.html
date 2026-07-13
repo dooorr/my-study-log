@@ -529,13 +529,15 @@
           <p class="muted block">数据存在本机浏览器。换设备前请导出。</p>
           <div class="btn-row">
             <button type="button" class="btn" id="exportBtn">导出 JSON</button>
+            <button type="button" class="btn" id="copyBackupBtn">复制备份</button>
             <button type="button" class="btn" id="exportIcsBtn">导出日历 ICS</button>
             <label class="btn file-btn">
               导入备份
               <input type="file" id="importFile" accept="application/json" hidden />
             </label>
           </div>
-          <p class="muted block mobile-hide-hint" style="margin-top:0.65rem">ICS：iPhone「文件」里打开 → 分享 → 日历。</p>
+          <p class="muted block">Via 若导出没反应：点「复制备份」→ 粘贴到微信/QQ 发给自己 → 电脑保存为 .json</p>
+          <p class="muted block mobile-hide-hint" style="margin-top:0.35rem">ICS：iPhone「文件」里打开 → 分享 → 日历。</p>
         </div>
       </section>
     </main>
@@ -599,6 +601,19 @@
         <button type="button" class="btn danger" id="logEditDelete">删除</button>
         <button type="button" class="btn" id="logEditCancel">取消</button>
         <button type="button" class="btn primary" id="logEditSave">保存</button>
+      </div>
+    </div>
+  </div>
+  <div class="log-edit-modal" id="backupExportModal" hidden aria-hidden="true">
+    <div class="log-edit-backdrop" id="backupExportBackdrop"></div>
+    <div class="log-edit-sheet backup-export-sheet" role="dialog" aria-labelledby="backupExportTitle" aria-modal="true">
+      <h3 id="backupExportTitle">备份数据</h3>
+      <p class="muted block backup-export-hint">旧版 Via 可能无法直接下载。请点「全选复制」，粘贴到微信/QQ 发给自己，电脑另存为 <strong id="backupExportFilename">backup.json</strong></p>
+      <textarea id="backupExportText" class="backup-export-text" readonly aria-label="备份 JSON 内容"></textarea>
+      <div class="log-edit-actions backup-export-actions">
+        <button type="button" class="btn" id="backupExportSelect">全选</button>
+        <button type="button" class="btn primary" id="backupExportCopy">复制备份</button>
+        <button type="button" class="btn" id="backupExportClose">关闭</button>
       </div>
     </div>
   </div>

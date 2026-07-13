@@ -2479,6 +2479,39 @@ input[type="text"] {
   min-height: 2.5rem;
 }
 
+.backup-export-sheet {
+  width: min(100%, 32rem);
+}
+
+.backup-export-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.backup-export-text {
+  display: block;
+  width: 100%;
+  min-height: 9rem;
+  max-height: 40vh;
+  margin-bottom: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--ink);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  resize: vertical;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.backup-export-actions {
+  grid-template-columns: 1fr 1.2fr 1fr;
+}
+
 @media (min-width: 721px) {
   .log-edit-modal {
     align-items: center;
